@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import ImageToText from '../components/ImageToText';
 
 export default function Home() {
-  const [leftWidth, setLeftWidth] = useState(70); // 70% for main content
+  const [leftWidth, setLeftWidth] = useState(70);
   const [isDragging, setIsDragging] = useState(false);
-  const [selectedChat, setSelectedChat] = useState('Getting Started');
+  const [extractedText, setExtractedText] = useState<string>('');
   const containerRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = useCallback(() => {
@@ -20,8 +21,7 @@ export default function Home() {
       const newLeftWidth =
         ((e.clientX - containerRect.left) / containerRect.width) * 100;
 
-      // Constrain between 50% and 85%
-      const constrainedWidth = Math.min(Math.max(newLeftWidth, 50), 85);
+      const constrainedWidth = Math.min(Math.max(newLeftWidth, 20), 80);
       setLeftWidth(constrainedWidth);
     },
     [isDragging]
@@ -31,8 +31,7 @@ export default function Home() {
     setIsDragging(false);
   }, []);
 
-  // Add global mouse event listeners
-  useState(() => {
+  useEffect(() => {
     const handleGlobalMouseMove = (e: MouseEvent) => handleMouseMove(e);
     const handleGlobalMouseUp = () => handleMouseUp();
 
@@ -45,249 +44,250 @@ export default function Home() {
       document.removeEventListener('mousemove', handleGlobalMouseMove);
       document.removeEventListener('mouseup', handleGlobalMouseUp);
     };
-  });
+  }, [isDragging]);
 
-  const recentChats = [
-    'Getting Started with Reading',
-    'Book Recommendation System',
-    'Reading Progress Tracker',
-    'Note-taking Features',
-    'Dark Mode Implementation',
-    'User Authentication Setup',
-    'Database Schema Design',
-    'API Integration Guide',
-    'Mobile Responsive Design',
-    'Performance Optimization',
-  ];
+  // Handle text extraction (assuming this is a separate effect or callback)
+  const handleTextExtracted = (text: string) => {
+    setExtractedText(text);
+  };
+
+  // Simple markdown parser for basic formatting
+  const parseMarkdown = (text: string) => {
+    return text.split('\n').map((line, index) => {
+      const key = `line-${index}`;
+
+      // Main headings (# )
+      if (line.startsWith('# ')) {
+        return (
+          <h1
+            key={key}
+            className='text-2xl font-bold mb-4 mt-6'
+            style={{ color: '#ffffff' }}
+          >
+            {line.substring(2)}
+          </h1>
+        );
+      }
+
+      // Subheadings (## )
+      if (line.startsWith('## ')) {
+        return (
+          <h2
+            key={key}
+            className='text-xl font-semibold mb-3 mt-5'
+            style={{ color: '#e5e7eb' }}
+          >
+            {line.substring(3)}
+          </h2>
+        );
+      }
+
+      // Smaller headings (### )
+      if (line.startsWith('### ')) {
+        return (
+          <h3
+            key={key}
+            className='text-lg font-medium mb-2 mt-4'
+            style={{ color: '#d1d5db' }}
+          >
+            {line.substring(4)}
+          </h3>
+        );
+      }
+
+      // Bullet points (- )
+      if (line.startsWith('- ')) {
+        return (
+          <div key={key} className='flex items-start mb-1'>
+            <span className='mr-2 mt-1' style={{ color: '#8975EA' }}>
+              •
+            </span>
+            <span style={{ color: '#e5e7eb' }}>{line.substring(2)}</span>
+          </div>
+        );
+      }
+
+      // Numbered lists (1. 2. etc.)
+      if (/^\d+\.\s/.test(line)) {
+        const match = line.match(/^(\d+)\.\s(.*)$/);
+        if (match) {
+          return (
+            <div key={key} className='flex items-start mb-1'>
+              <span
+                className='mr-2 mt-1 font-medium'
+                style={{ color: '#8975EA' }}
+              >
+                {match[1]}.
+              </span>
+              <span style={{ color: '#e5e7eb' }}>{match[2]}</span>
+            </div>
+          );
+        }
+      }
+
+      // Bold text (**text**)
+      if (line.includes('**')) {
+        const parts = line.split(/(\*\*.*?\*\*)/);
+        return (
+          <p
+            key={key}
+            className='mb-2 leading-relaxed'
+            style={{ color: '#e5e7eb' }}
+          >
+            {parts.map((part, i) => {
+              if (part.startsWith('**') && part.endsWith('**')) {
+                return (
+                  <strong key={i} className='font-semibold'>
+                    {part.slice(2, -2)}
+                  </strong>
+                );
+              }
+              return part;
+            })}
+          </p>
+        );
+      }
+
+      // Italic text (*text*)
+      if (line.includes('*') && !line.includes('**')) {
+        const parts = line.split(/(\*.*?\*)/);
+        return (
+          <p
+            key={key}
+            className='mb-2 leading-relaxed'
+            style={{ color: '#e5e7eb' }}
+          >
+            {parts.map((part, i) => {
+              if (
+                part.startsWith('*') &&
+                part.endsWith('*') &&
+                !part.includes('**')
+              ) {
+                return (
+                  <em key={i} className='italic'>
+                    {part.slice(1, -1)}
+                  </em>
+                );
+              }
+              return part;
+            })}
+          </p>
+        );
+      }
+
+      // Empty lines for spacing
+      if (line.trim() === '') {
+        return <div key={key} className='mb-2'></div>;
+      }
+
+      // Regular paragraphs
+      return (
+        <p
+          key={key}
+          className='mb-2 leading-relaxed'
+          style={{ color: '#e5e7eb' }}
+        >
+          {line}
+        </p>
+      );
+    });
+  };
+
+  const clearText = () => {
+    setExtractedText('');
+  };
 
   return (
     <div
       ref={containerRef}
-      className='flex h-screen w-full text-white overflow-hidden'
+      className='flex h-screen w-full'
       style={{ fontFamily: 'var(--font-geist-sans)' }}
     >
-      {/* Main Content Area - 70% - Color #262624 */}
+      {/* Left Panel - 70% - Color #262624 */}
       <div
-        className='flex flex-col'
+        className='flex flex-col p-8 overflow-y-auto'
         style={{
           width: `${leftWidth}%`,
           backgroundColor: '#262624',
+          color: '#ffffff',
         }}
       >
-        {/* Header */}
-        <div className='p-6 border-b' style={{ borderColor: '#3a3836' }}>
-          <div className='flex items-center justify-between'>
-            <div className='flex items-center gap-3'>
-              <div
-                className='w-8 h-8 rounded-lg flex items-center justify-center'
-                style={{ backgroundColor: '#8975EA' }}
-              >
-                <span className='text-white text-sm font-bold'>RC</span>
-              </div>
-              <span className='text-xl font-medium text-gray-100'>
-                Reading Companion
-              </span>
-            </div>
-            <div className='text-sm text-gray-400'>Good afternoon, Harsh</div>
-          </div>
+        <div className='flex items-center justify-between mb-6'>
+          <h1 className='text-2xl font-semibold'>Extracted Text</h1>
+          {extractedText && (
+            <button
+              onClick={clearText}
+              className='px-3 py-1 text-sm rounded border'
+              style={{ borderColor: '#3a3836', color: '#9ca3af' }}
+            >
+              Clear
+            </button>
+          )}
         </div>
 
-        {/* Welcome Section */}
-        <div className='flex-1 flex flex-col justify-center items-center px-8'>
-          <div className='text-center max-w-2xl'>
-            <div className='mb-6'>
-              <h1 className='text-4xl font-light text-gray-100 mb-4'>
-                How can I help you today?
-              </h1>
-              <p className='text-lg text-gray-400'>
-                Your personalized reading companion for tracking progress,
-                taking notes, and discovering new books.
+        {extractedText ? (
+          <div className='flex-1'>
+            <div
+              className='w-full h-full p-6 rounded-lg border overflow-y-auto'
+              style={{
+                backgroundColor: '#2a2826',
+                borderColor: '#3a3836',
+              }}
+            >
+              <div className='prose prose-invert max-w-none'>
+                {parseMarkdown(extractedText)}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className='flex-1 flex items-center justify-center'>
+            <div className='text-center'>
+              <div className='text-4xl mb-4'>📄</div>
+              <p className='text-gray-300'>Upload an image to extract text</p>
+              <p className='text-sm text-gray-500 mt-2'>
+                The extracted text will appear here
               </p>
             </div>
-
-            {/* Chat Input */}
-            <div className='mb-8'>
-              <div className='relative'>
-                <textarea
-                  placeholder='Ask me anything about your reading journey...'
-                  className='w-full px-4 py-4 text-gray-200 placeholder-gray-500 resize-none focus:outline-none rounded-xl min-h-[80px] border'
-                  style={{
-                    backgroundColor: '#2a2826',
-                    borderColor: '#3a3836',
-                  }}
-                  rows={3}
-                />
-                <div className='absolute right-3 bottom-3 flex items-center gap-2'>
-                  <button className='p-2 text-gray-500 hover:text-gray-300 transition-colors rounded'>
-                    <span className='text-sm'>📎</span>
-                  </button>
-                  <button className='p-2 text-gray-500 hover:text-gray-300 transition-colors rounded'>
-                    <span className='text-sm'>🔍</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className='flex flex-wrap gap-3 justify-center mb-8'>
-              <button
-                className='flex items-center gap-2 px-4 py-3 rounded-lg text-gray-300 hover:text-white transition-all duration-200 text-sm border border-transparent hover:border-gray-600'
-                style={{ backgroundColor: '#2a2826' }}
-              >
-                <span>📝</span>
-                <span>Start Reading Log</span>
-              </button>
-              <button
-                className='flex items-center gap-2 px-4 py-3 rounded-lg text-gray-300 hover:text-white transition-all duration-200 text-sm border border-transparent hover:border-gray-600'
-                style={{ backgroundColor: '#2a2826' }}
-              >
-                <span>📚</span>
-                <span>Browse Books</span>
-              </button>
-              <button
-                className='flex items-center gap-2 px-4 py-3 rounded-lg text-gray-300 hover:text-white transition-all duration-200 text-sm border border-transparent hover:border-gray-600'
-                style={{ backgroundColor: '#2a2826' }}
-              >
-                <span>📊</span>
-                <span>View Progress</span>
-              </button>
-              <button
-                className='flex items-center gap-2 px-4 py-3 rounded-lg text-gray-300 hover:text-white transition-all duration-200 text-sm border border-transparent hover:border-gray-600'
-                style={{ backgroundColor: '#2a2826' }}
-              >
-                <span>💡</span>
-                <span>Get Recommendations</span>
-              </button>
-            </div>
           </div>
-        </div>
-
-        {/* Bottom Info */}
-        <div className='p-6 border-t' style={{ borderColor: '#3a3836' }}>
-          <div className='flex justify-center'>
-            <div className='text-xs text-gray-500'>
-              Reading Companion v1.0 • Powered by AI
-            </div>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Resizable Divider */}
       <div
-        className='w-1 cursor-col-resize hover:w-2 transition-all duration-200 relative group'
+        className='w-1 cursor-col-resize hover:w-2 transition-all duration-200'
         style={{ backgroundColor: '#3a3836' }}
         onMouseDown={handleMouseDown}
-      >
-        <div
-          className='absolute inset-y-0 left-1/2 transform -translate-x-1/2 w-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200'
-          style={{ backgroundColor: '#4a453f' }}
-        ></div>
-      </div>
+      />
 
-      {/* Sidebar - 30% - Color #1F1E1D */}
+      {/* Right Panel - 30% - Color #1F1E1D */}
       <div
-        className='flex flex-col'
+        className='flex flex-col p-8 overflow-y-auto'
         style={{
           width: `${100 - leftWidth}%`,
           backgroundColor: '#1F1E1D',
+          color: '#ffffff',
         }}
       >
-        {/* Sidebar Header */}
-        <div className='p-4 border-b' style={{ borderColor: '#2f2d2a' }}>
-          <button
-            className='w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-white font-medium transition-all duration-200 hover:scale-[1.02]'
-            style={{ backgroundColor: '#8975EA' }}
-          >
-            <span className='text-lg'>+</span>
-            <span>New Session</span>
-          </button>
+        <h2 className='text-xl font-semibold mb-6'>Image to Text</h2>
+
+        <div className='flex-1'>
+          <ImageToText onTextExtracted={handleTextExtracted} />
         </div>
 
-        {/* Navigation */}
-        <div className='p-4 border-b' style={{ borderColor: '#2f2d2a' }}>
-          <div className='space-y-1'>
-            <button className='w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:text-white text-left transition-colors nav-button'>
-              <span>💬</span>
-              <span className='text-sm'>Chat History</span>
-            </button>
-            <button className='w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:text-white text-left transition-colors nav-button'>
-              <span>📖</span>
-              <span className='text-sm'>My Library</span>
-            </button>
-            <button className='w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:text-white text-left transition-colors nav-button'>
-              <span>⭐</span>
-              <span className='text-sm'>Favorites</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Recent Sessions */}
-        <div className='flex-1 overflow-y-auto'>
-          <div className='p-4'>
-            <h3 className='text-xs font-medium text-gray-500 uppercase tracking-wide mb-3'>
-              Recent Sessions
-            </h3>
-            <div className='space-y-1'>
-              {recentChats.map((chat, index) => (
-                <button
-                  key={index}
-                  onClick={() => setSelectedChat(chat)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all duration-200 border-l-2 ${
-                    selectedChat === chat
-                      ? 'text-white border-l-2'
-                      : 'text-gray-400 hover:text-gray-200 border-l-2 border-transparent'
-                  }`}
-                  style={{
-                    backgroundColor:
-                      selectedChat === chat ? '#2a2826' : 'transparent',
-                    borderLeftColor:
-                      selectedChat === chat ? '#3a3836' : 'transparent',
-                  }}
-                >
-                  <div className='truncate leading-relaxed'>{chat}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Reading Stats */}
-        <div className='p-4 border-t' style={{ borderColor: '#2f2d2a' }}>
-          <h3 className='text-xs font-medium text-gray-500 uppercase tracking-wide mb-3'>
-            Today's Stats
+        {/* Instructions */}
+        <div
+          className='mt-6 p-4 rounded-lg'
+          style={{ backgroundColor: '#2a2826' }}
+        >
+          <h3 className='text-sm font-medium mb-2' style={{ color: '#8975EA' }}>
+            How it works:
           </h3>
-          <div className='space-y-3'>
-            <div className='flex justify-between items-center'>
-              <span className='text-xs text-gray-400'>Pages Read</span>
-              <span className='text-sm font-medium text-gray-200'>24</span>
-            </div>
-            <div className='flex justify-between items-center'>
-              <span className='text-xs text-gray-400'>Reading Time</span>
-              <span className='text-sm font-medium text-gray-200'>45m</span>
-            </div>
-            <div className='flex justify-between items-center'>
-              <span className='text-xs text-gray-400'>Streak</span>
-              <span className='text-sm font-medium text-gray-200'>7 days</span>
-            </div>
-          </div>
-        </div>
-
-        {/* User Profile */}
-        <div className='p-4 border-t' style={{ borderColor: '#2f2d2a' }}>
-          <div className='flex items-center gap-3'>
-            <div
-              className='w-8 h-8 rounded-full flex items-center justify-center'
-              style={{ backgroundColor: '#3a3836' }}
-            >
-              <span className='text-white text-sm font-medium'>HR</span>
-            </div>
-            <div className='flex-1 min-w-0'>
-              <div className='text-sm font-medium text-gray-200'>
-                Harsh Rawat
-              </div>
-              <div className='text-xs text-gray-500'>Pro Reader</div>
-            </div>
-          </div>
+          <ul className='text-xs text-gray-400 space-y-1'>
+            <li>• Select an image file</li>
+            <li>• Click "Extract Text"</li>
+            <li>• AI will read and extract all text</li>
+            <li>• Text appears in the main panel</li>
+          </ul>
         </div>
       </div>
     </div>
