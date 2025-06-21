@@ -1,26 +1,104 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --primary: #8975ea;
+  --main-bg: #262624;
+  --sidebar-bg: #1f1e1d;
+  --border-light: #3a3836;
+  --border-medium: #2f2d2a;
+  --border-dark: #4a453f;
+  --text-primary: #ffffff;
+  --text-secondary: #e5e7eb;
+  --text-muted: #9ca3af;
+  --text-subtle: #6b7280;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-main-bg: var(--main-bg);
+  --color-sidebar-bg: var(--sidebar-bg);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background: var(--main-bg);
+  color: var(--text-primary);
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Roboto, sans-serif;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-weight: 400;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Custom scrollbar using secondary colors */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--border-light);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-dark);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-medium);
+}
+
+/* Focus styles - minimal primary color usage */
+*:focus {
+  outline: none;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--border-dark);
+  outline-offset: 2px;
+}
+
+/* Only primary action buttons get primary color focus */
+button[style*='8975EA']:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Textarea focus uses subtle secondary color */
+textarea:focus {
+  border-color: var(--border-dark) !important;
+  box-shadow: 0 0 0 2px rgba(74, 69, 63, 0.3) !important;
+}
+
+/* Smooth transitions */
+button,
+.cursor-col-resize,
+textarea {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Hover effects using secondary colors */
+button:hover:not([style*='8975EA']) {
+  background-color: #2a2826 !important;
+}
+
+/* Navigation button hover effects */
+.nav-button:hover {
+  background-color: #2a2826 !important;
+}
+
+/* Selection uses secondary color */
+::selection {
+  background-color: var(--border-light);
+  color: var(--text-primary);
+}
+
+/* Ensure proper text rendering */
+* {
+  text-rendering: optimizeLegibility;
 }
