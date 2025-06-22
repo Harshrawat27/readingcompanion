@@ -1,11 +1,23 @@
 'use client';
 
+interface PageData {
+  pageNumber: number;
+  canvas?: HTMLCanvasElement;
+  imageData: string;
+  extractedText?: string;
+  width: number;
+  height: number;
+}
+
 interface MiddlePanelProps {
   extractedText: string;
   fontSize: number;
   theme: string;
   isHighlightEnabled: boolean;
   onClearText: () => void;
+  pages?: PageData[]; // New prop for multi-page documents
+  currentPage?: number; // Current page being viewed
+  onPageChange?: (pageNumber: number) => void; // Page navigation callback
 }
 
 export default function MiddlePanel({
@@ -14,6 +26,9 @@ export default function MiddlePanel({
   theme,
   isHighlightEnabled,
   onClearText,
+  pages = [],
+  currentPage = 1,
+  onPageChange,
 }: MiddlePanelProps) {
   // Theme configurations
   const getThemeStyles = (theme: string) => {
@@ -40,6 +55,13 @@ export default function MiddlePanel({
   };
 
   const themeStyles = getThemeStyles(theme);
+
+  // Determine what content to display
+  const isMultiPageMode = pages.length > 0;
+  const currentPageData = pages.find((p) => p.pageNumber === currentPage);
+  const displayText = isMultiPageMode
+    ? currentPageData?.extractedText || ''
+    : extractedText;
 
   // Simple markdown parser with theme support
   const parseMarkdown = (text: string) => {
@@ -198,6 +220,19 @@ export default function MiddlePanel({
     });
   };
 
+  // Navigation handlers
+  const goToPreviousPage = () => {
+    if (currentPage > 1 && onPageChange) {
+      onPageChange(currentPage - 1);
+    }
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < pages.length && onPageChange) {
+      onPageChange(currentPage + 1);
+    }
+  };
+
   return (
     <div
       className='flex flex-col h-full overflow-hidden'
@@ -211,15 +246,61 @@ export default function MiddlePanel({
         className='flex items-center justify-between p-6 border-b'
         style={{ borderColor: themeStyles.borderColor }}
       >
-        <h1 className='text-2xl font-semibold'>Extracted Text</h1>
+        <div className='flex items-center gap-4'>
+          <h1 className='text-2xl font-semibold'>
+            {isMultiPageMode ? 'Document Reader' : 'Extracted Text'}
+          </h1>
+
+          {/* Page Navigation */}
+          {isMultiPageMode && pages.length > 0 && (
+            <div className='flex items-center gap-2'>
+              <button
+                onClick={goToPreviousPage}
+                disabled={currentPage <= 1}
+                className='w-8 h-8 rounded flex items-center justify-center transition-colors disabled:opacity-30'
+                style={{
+                  backgroundColor:
+                    currentPage > 1 ? '#8975EA' : themeStyles.borderColor,
+                  color: currentPage > 1 ? '#ffffff' : themeStyles.textColor,
+                }}
+              >
+                ←
+              </button>
+
+              <span className='text-sm text-gray-400 min-w-[80px] text-center'>
+                Page {currentPage} of {pages.length}
+              </span>
+
+              <button
+                onClick={goToNextPage}
+                disabled={currentPage >= pages.length}
+                className='w-8 h-8 rounded flex items-center justify-center transition-colors disabled:opacity-30'
+                style={{
+                  backgroundColor:
+                    currentPage < pages.length
+                      ? '#8975EA'
+                      : themeStyles.borderColor,
+                  color:
+                    currentPage < pages.length
+                      ? '#ffffff'
+                      : themeStyles.textColor,
+                }}
+              >
+                →
+              </button>
+            </div>
+          )}
+        </div>
+
         <div className='flex items-center gap-3'>
           {/* Theme indicator */}
           <div className='text-xs text-gray-400 capitalize'>
             {theme} • {fontSize}px
+            {isMultiPageMode && ` • ${pages.length} pages`}
           </div>
 
           {/* Clear button */}
-          {extractedText && (
+          {(extractedText || pages.length > 0) && (
             <button
               onClick={onClearText}
               className='px-3 py-1 text-sm rounded border hover:bg-opacity-10 hover:bg-white transition-colors'
@@ -235,54 +316,116 @@ export default function MiddlePanel({
       </div>
 
       {/* Content Area */}
-      <div className='flex-1 overflow-hidden'>
-        {extractedText ? (
+      <div className='flex-1 overflow-hidden flex'>
+        {/* Page Thumbnails Sidebar (only for multi-page) */}
+        {isMultiPageMode && pages.length > 1 && (
           <div
-            className='w-full h-full p-6 overflow-y-auto'
-            style={{
-              backgroundColor: themeStyles.backgroundColor,
-            }}
+            className='w-32 border-r overflow-y-auto'
+            style={{ borderColor: themeStyles.borderColor }}
           >
-            <div className='prose prose-invert max-w-none'>
-              {parseMarkdown(extractedText)}
-            </div>
-          </div>
-        ) : (
-          <div className='flex-1 flex items-center justify-center h-full'>
-            <div className='text-center'>
-              <div className='text-4xl mb-4'>📄</div>
-              <p className='text-gray-300 text-lg'>
-                Upload an image to extract text
-              </p>
-              <p className='text-sm text-gray-500 mt-2'>
-                The extracted text will appear here with your formatting
-                preferences
-              </p>
-
-              {/* Quick tips */}
-              <div
-                className='mt-6 p-4 rounded-lg max-w-md mx-auto'
-                style={{ backgroundColor: themeStyles.borderColor }}
-              >
-                <h3
-                  className='text-sm font-medium mb-2'
-                  style={{ color: '#8975EA' }}
+            <div className='p-2 space-y-2'>
+              {pages.map((page) => (
+                <button
+                  key={page.pageNumber}
+                  onClick={() => onPageChange && onPageChange(page.pageNumber)}
+                  className={`w-full p-2 rounded text-left transition-colors ${
+                    currentPage === page.pageNumber ? 'ring-2' : ''
+                  }`}
+                  style={{
+                    backgroundColor:
+                      currentPage === page.pageNumber
+                        ? '#8975EA20'
+                        : 'transparent',
+                    outline:
+                      currentPage === page.pageNumber
+                        ? '2px solid #8975EA'
+                        : 'none',
+                  }}
                 >
-                  Pro Tips:
-                </h3>
-                <ul className='text-xs text-gray-400 space-y-1 text-left'>
-                  <li>• Use the left panel to adjust font size and theme</li>
-                  <li>• Enable highlighting to emphasize bold text</li>
-                  <li>• Export your text in multiple formats</li>
-                </ul>
-              </div>
+                  {/* Page thumbnail */}
+                  {page.imageData && (
+                    <img
+                      src={page.imageData}
+                      alt={`Page ${page.pageNumber}`}
+                      className='w-full h-16 object-cover rounded mb-1'
+                    />
+                  )}
+                  <div className='text-xs text-center'>
+                    <div
+                      className={
+                        currentPage === page.pageNumber
+                          ? 'text-white font-medium'
+                          : 'text-gray-400'
+                      }
+                    >
+                      Page {page.pageNumber}
+                    </div>
+                    {page.extractedText && (
+                      <div className='text-green-400'>✓</div>
+                    )}
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
         )}
+
+        {/* Main Content */}
+        <div className='flex-1 overflow-hidden'>
+          {displayText ? (
+            <div
+              className='w-full h-full p-6 overflow-y-auto'
+              style={{
+                backgroundColor: themeStyles.backgroundColor,
+              }}
+            >
+              <div className='prose prose-invert max-w-none'>
+                {parseMarkdown(displayText)}
+              </div>
+            </div>
+          ) : (
+            <div className='flex-1 flex items-center justify-center h-full'>
+              <div className='text-center'>
+                <div className='text-4xl mb-4'>
+                  {isMultiPageMode ? '📄' : '📄'}
+                </div>
+                <p className='text-gray-300 text-lg'>
+                  {isMultiPageMode
+                    ? `Page ${currentPage} - No text extracted yet`
+                    : 'Upload an image or PDF to extract text'}
+                </p>
+                <p className='text-sm text-gray-500 mt-2'>
+                  {isMultiPageMode
+                    ? 'Click "Extract text" in the right panel to process this page'
+                    : 'The extracted text will appear here with your formatting preferences'}
+                </p>
+
+                {/* Quick tips */}
+                <div
+                  className='mt-6 p-4 rounded-lg max-w-md mx-auto'
+                  style={{ backgroundColor: themeStyles.borderColor }}
+                >
+                  <h3
+                    className='text-sm font-medium mb-2'
+                    style={{ color: '#8975EA' }}
+                  >
+                    Pro Tips:
+                  </h3>
+                  <ul className='text-xs text-gray-400 space-y-1 text-left'>
+                    <li>• Use the left panel to adjust font size and theme</li>
+                    <li>• Enable highlighting to emphasize bold text</li>
+                    <li>• Navigate between pages using arrow buttons</li>
+                    <li>• Export your text in multiple formats</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Footer Stats */}
-      {extractedText && (
+      {displayText && (
         <div
           className='p-4 border-t'
           style={{ borderColor: themeStyles.borderColor }}
@@ -291,15 +434,20 @@ export default function MiddlePanel({
             <span>
               Words:{' '}
               {
-                extractedText.split(/\s+/).filter((word) => word.length > 0)
+                displayText.split(/\s+/).filter((word) => word.length > 0)
                   .length
               }
             </span>
-            <span>Characters: {extractedText.length}</span>
+            <span>Characters: {displayText.length}</span>
             <span>
-              Reading time: ~
-              {Math.ceil(extractedText.split(/\s+/).length / 200)} min
+              Reading time: ~{Math.ceil(displayText.split(/\s+/).length / 200)}{' '}
+              min
             </span>
+            {isMultiPageMode && (
+              <span>
+                Page {currentPage}/{pages.length}
+              </span>
+            )}
           </div>
         </div>
       )}

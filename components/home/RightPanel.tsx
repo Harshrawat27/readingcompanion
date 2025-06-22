@@ -15,7 +15,7 @@ interface PageData {
 
 interface RightPanelProps {
   onTextExtracted: (text: string) => void;
-  onPagesExtracted?: (pages: PageData[]) => void; // New prop for multi-page
+  onPagesExtracted?: (pages: PageData[]) => void;
   extractedText: string;
 }
 
@@ -28,9 +28,10 @@ export default function RightPanel({
   const [aiProcessing, setAiProcessing] = useState(false);
   const [aiResult, setAiResult] = useState<string>('');
   const [pagesData, setPagesData] = useState<PageData[]>([]);
+  const [extractingPageText, setExtractingPageText] = useState(false);
 
   const tabs = [
-    { id: 'extract', label: 'Extract', icon: '📄' }, // Changed icon for PDF
+    { id: 'extract', label: 'Extract', icon: '📄' },
     { id: 'analyze', label: 'Analyze', icon: '🤖' },
     { id: 'enhance', label: 'Enhance', icon: '✨' },
   ];
@@ -94,11 +95,6 @@ export default function RightPanel({
     console.log(`Received ${pages.length} pages from PDF`);
     setPagesData(pages);
 
-    // For now, let's just extract text from the first page to test
-    if (pages.length > 0) {
-      extractTextFromPage(pages[0]);
-    }
-
     // Call the parent callback if provided
     if (onPagesExtracted) {
       onPagesExtracted(pages);
@@ -107,6 +103,13 @@ export default function RightPanel({
 
   // Extract text from a single page using our existing vision API
   const extractTextFromPage = async (pageData: PageData) => {
+    if (!pageData.imageData) {
+      console.error('No image data for page', pageData.pageNumber);
+      return;
+    }
+
+    setExtractingPageText(true);
+
     try {
       const response = await fetch('/api/vision', {
         method: 'POST',
@@ -145,10 +148,14 @@ This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY 
         // Update the page data with extracted text
         pageData.extractedText = extractedText;
 
-        // For testing, send the text to the main panel
-        onTextExtracted(
-          `=== PAGE ${pageData.pageNumber} ===\n\n${extractedText}`
+        // Update the pages array
+        const updatedPages = pagesData.map((p) =>
+          p.pageNumber === pageData.pageNumber ? { ...p, extractedText } : p
         );
+        setPagesData(updatedPages);
+
+        // Send the text to the main panel
+        onTextExtracted(extractedText);
 
         console.log(`Text extracted from page ${pageData.pageNumber}`);
       } else {
@@ -156,6 +163,61 @@ This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY 
       }
     } catch (error) {
       console.error('Error extracting text from page:', error);
+    } finally {
+      setExtractingPageText(false);
+    }
+  };
+
+  // Extract text from all pages and combine
+  const extractAllPagesText = async () => {
+    if (pagesData.length === 0) return;
+
+    setExtractingPageText(true);
+
+    try {
+      let combinedText = '';
+      const updatedPages = [...pagesData];
+
+      for (let i = 0; i < pagesData.length; i++) {
+        const page = pagesData[i];
+
+        if (!page.extractedText) {
+          console.log(`Extracting text from page ${page.pageNumber}...`);
+
+          const response = await fetch('/api/vision', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              image: page.imageData,
+              prompt: `Analyze this PDF page and extract ALL text while preserving the EXACT original formatting and structure. 
+
+This is page ${page.pageNumber}. Extract EVERYTHING visible and return ONLY the properly formatted markdown text with no additional commentary.`,
+            }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            updatedPages[i].extractedText = data.text;
+          }
+        }
+
+        if (updatedPages[i].extractedText) {
+          combinedText += `\n\n--- PAGE ${page.pageNumber} ---\n\n${updatedPages[i].extractedText}`;
+        }
+      }
+
+      setPagesData(updatedPages);
+
+      if (combinedText.trim()) {
+        onTextExtracted(combinedText.trim());
+      }
+    } catch (error) {
+      console.error('Error extracting text from all pages:', error);
+    } finally {
+      setExtractingPageText(false);
     }
   };
 
@@ -236,7 +298,8 @@ This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY 
         <h2 className='text-xl font-semibold'>AI Assistant</h2>
         {pagesData.length > 0 && (
           <div className='text-xs text-gray-400 mt-1'>
-            {pagesData.length} pages loaded
+            {pagesData.length} pages loaded •{' '}
+            {pagesData.filter((p) => p.extractedText).length} pages with text
           </div>
         )}
       </div>
@@ -275,39 +338,97 @@ This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY 
             {/* PDF Upload Component */}
             <PDFUpload onPagesExtracted={handlePagesExtracted} />
 
-            {/* Pages Preview */}
+            {/* Pages Management */}
             {pagesData.length > 0 && (
               <div
                 className='mt-6 p-4 rounded-lg'
                 style={{ backgroundColor: '#2a2826' }}
               >
-                <h3
-                  className='text-sm font-medium mb-3'
-                  style={{ color: '#8975EA' }}
-                >
-                  Extracted Pages ({pagesData.length}):
-                </h3>
-                <div className='space-y-2 max-h-32 overflow-y-auto'>
+                <div className='flex items-center justify-between mb-3'>
+                  <h3
+                    className='text-sm font-medium'
+                    style={{ color: '#8975EA' }}
+                  >
+                    Pages ({pagesData.length}):
+                  </h3>
+
+                  {/* Extract All Button */}
+                  <button
+                    onClick={extractAllPagesText}
+                    disabled={extractingPageText}
+                    className='text-xs px-3 py-1 rounded transition-colors disabled:opacity-50'
+                    style={{
+                      backgroundColor: '#8975EA',
+                      color: 'white',
+                    }}
+                  >
+                    {extractingPageText ? (
+                      <div className='flex items-center gap-1'>
+                        <div className='w-3 h-3 border border-white border-t-transparent rounded-full animate-spin'></div>
+                        <span>Extracting...</span>
+                      </div>
+                    ) : (
+                      'Extract All Text'
+                    )}
+                  </button>
+                </div>
+
+                <div className='space-y-2 max-h-40 overflow-y-auto'>
                   {pagesData.map((page) => (
                     <div
                       key={page.pageNumber}
-                      className='flex items-center justify-between p-2 rounded'
+                      className='flex items-center justify-between p-3 rounded'
                       style={{ backgroundColor: '#1f1e1d' }}
                     >
-                      <span className='text-xs text-gray-300'>
-                        Page {page.pageNumber}
-                      </span>
+                      <div className='flex items-center gap-3'>
+                        {/* Page thumbnail */}
+                        {page.imageData && (
+                          <img
+                            src={page.imageData}
+                            alt={`Page ${page.pageNumber}`}
+                            className='w-8 h-10 object-cover rounded border'
+                            style={{ borderColor: '#3a3836' }}
+                          />
+                        )}
+
+                        <div>
+                          <span className='text-sm text-gray-300'>
+                            Page {page.pageNumber}
+                          </span>
+                          <div className='text-xs text-gray-500'>
+                            {Math.round(page.width / 2)}×
+                            {Math.round(page.height / 2)}
+                          </div>
+                        </div>
+                      </div>
+
                       <div className='flex items-center gap-2'>
-                        <span className='text-xs text-gray-500'>
-                          {page.width}×{page.height}
-                        </span>
-                        <button
-                          onClick={() => extractTextFromPage(page)}
-                          className='text-xs px-2 py-1 rounded'
-                          style={{ backgroundColor: '#8975EA', color: 'white' }}
-                        >
-                          Extract
-                        </button>
+                        {/* Status indicator */}
+                        {page.extractedText ? (
+                          <span className='text-xs text-green-400 flex items-center gap-1'>
+                            <span>✓</span>
+                            <span>Text Ready</span>
+                          </span>
+                        ) : (
+                          <span className='text-xs text-yellow-400'>
+                            Image Ready
+                          </span>
+                        )}
+
+                        {/* Extract button for individual page */}
+                        {!page.extractedText && (
+                          <button
+                            onClick={() => extractTextFromPage(page)}
+                            disabled={extractingPageText}
+                            className='text-xs px-2 py-1 rounded transition-colors disabled:opacity-50'
+                            style={{
+                              backgroundColor: '#8975EA',
+                              color: 'white',
+                            }}
+                          >
+                            Extract
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -329,15 +450,14 @@ This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY 
               <ul className='text-xs text-gray-400 space-y-1'>
                 <li>• Upload a PDF document (up to 50MB)</li>
                 <li>• Each page is converted to high-quality images</li>
-                <li>• Click "Extract" on any page to get its text</li>
+                <li>• Extract text from individual pages or all at once</li>
                 <li>• Text appears in the main panel with formatting</li>
-                <li>• Use other tabs for AI-powered analysis</li>
+                <li>• Navigate between pages using the main panel controls</li>
               </ul>
             </div>
           </div>
         )}
 
-        {/* Keep the existing analyze and enhance tabs unchanged */}
         {activeTab === 'analyze' && (
           <div className='p-4 space-y-4'>
             <div className='mb-4'>
@@ -484,7 +604,10 @@ This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY 
       <div className='p-4 border-t' style={{ borderColor: '#2f2d2a' }}>
         <div className='text-xs text-gray-500 text-center'>
           {pagesData.length > 0 ? (
-            <span>✓ {pagesData.length} pages ready for processing</span>
+            <span>
+              ✓ {pagesData.length} pages loaded •{' '}
+              {pagesData.filter((p) => p.extractedText).length} with text
+            </span>
           ) : extractedText ? (
             <span>✓ Text ready for AI processing</span>
           ) : (

@@ -99,6 +99,11 @@ export default function Home() {
   // Application event handlers
   const handleTextExtracted = (text: string) => {
     setExtractedText(text);
+    // If we have pages but are showing single text, clear pages mode
+    if (pagesData.length > 0 && !text.includes('--- PAGE')) {
+      setPagesData([]);
+      setCurrentPage(1);
+    }
   };
 
   // New handler for multi-page documents
@@ -107,8 +112,25 @@ export default function Home() {
     setPagesData(pages);
     setCurrentPage(1); // Reset to first page
 
-    // Clear any existing single-page text
+    // Clear any existing single-page text when switching to multi-page mode
     setExtractedText('');
+  };
+
+  // Handle page navigation
+  const handlePageChange = (pageNumber: number) => {
+    if (pageNumber >= 1 && pageNumber <= pagesData.length) {
+      setCurrentPage(pageNumber);
+
+      // Update the main text area with the current page's text
+      const currentPageData = pagesData.find(
+        (p) => p.pageNumber === pageNumber
+      );
+      if (currentPageData?.extractedText) {
+        setExtractedText(currentPageData.extractedText);
+      } else {
+        setExtractedText(''); // Clear text if current page has no text yet
+      }
+    }
   };
 
   const handleClearText = () => {
@@ -164,6 +186,9 @@ export default function Home() {
           theme={theme}
           isHighlightEnabled={isHighlightEnabled}
           onClearText={handleClearText}
+          pages={pagesData}
+          currentPage={currentPage}
+          onPageChange={handlePageChange}
         />
       </div>
 
