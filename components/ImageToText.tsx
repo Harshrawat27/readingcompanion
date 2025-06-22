@@ -111,12 +111,19 @@ CRITICAL REQUIREMENTS:
    - 1. 2. 3. for numbered lists
    - **text** for bold text
    - *text* for italic text
-3. Maintain original spacing and line breaks
-4. Preserve the reading order and layout structure
-5. Keep tables in proper markdown table format if present
-6. Maintain any indentation or grouping
+3. Handle mathematical formulas and equations:
+   - For inline math: $formula$
+   - For display math (centered): $formula$
+   - Preserve all mathematical notation exactly as shown
+   - Keep subscripts, superscripts, fractions, Greek letters, etc.
+4. Maintain original spacing and line breaks
+5. Preserve the reading order and layout structure
+6. Keep tables in proper markdown table format if present
+7. For images/diagrams, use: [Image: brief description]
+8. Maintain any indentation or grouping
+9. Do NOT wrap content in code blocks unless it's actual code
 
-Extract EVERYTHING visible and return ONLY the properly formatted markdown text with no additional commentary.`,
+Extract EVERYTHING visible and return ONLY the properly formatted markdown text with no additional commentary. Pay special attention to mathematical formulas and scientific notation.`,
       }),
     });
 

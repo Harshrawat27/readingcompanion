@@ -66,7 +66,7 @@ export default function MiddlePanel({
     ? currentImageData?.extractedText || ''
     : extractedText;
 
-  // Simple markdown parser with theme support
+  // Enhanced markdown parser with math support
   const parseMarkdown = (text: string) => {
     return text.split('\n').map((line, index) => {
       const key = `line-${index}`;
@@ -126,6 +126,26 @@ export default function MiddlePanel({
         );
       }
 
+      // Display math ($...$)
+      if (line.trim().startsWith('$') && line.trim().endsWith('$')) {
+        const mathContent = line.trim().slice(2, -2);
+        return (
+          <div key={key} className='my-4 text-center'>
+            <div
+              className='inline-block p-3 rounded font-mono'
+              style={{
+                backgroundColor: themeStyles.borderColor,
+                color: '#8975EA',
+                fontSize: `${fontSize + 2}px`,
+                fontFamily: 'var(--font-geist-mono)',
+              }}
+            >
+              {mathContent}
+            </div>
+          </div>
+        );
+      }
+
       // Bullet points (- )
       if (line.startsWith('- ')) {
         return (
@@ -136,7 +156,9 @@ export default function MiddlePanel({
             >
               •
             </span>
-            <span style={baseStyle}>{line.substring(2)}</span>
+            <span style={baseStyle}>
+              {parseInlineElements(line.substring(2), baseStyle)}
+            </span>
           </div>
         );
       }
@@ -153,60 +175,12 @@ export default function MiddlePanel({
               >
                 {match[1]}.
               </span>
-              <span style={baseStyle}>{match[2]}</span>
+              <span style={baseStyle}>
+                {parseInlineElements(match[2], baseStyle)}
+              </span>
             </div>
           );
         }
-      }
-
-      // Bold text (**text**)
-      if (line.includes('**')) {
-        const parts = line.split(/(\*\*.*?\*\*)/);
-        return (
-          <p key={key} className='mb-2 leading-relaxed' style={baseStyle}>
-            {parts.map((part, i) => {
-              if (part.startsWith('**') && part.endsWith('**')) {
-                return (
-                  <strong
-                    key={i}
-                    className='font-semibold'
-                    style={{
-                      backgroundColor: isHighlightEnabled
-                        ? '#8975EA40'
-                        : 'transparent',
-                    }}
-                  >
-                    {part.slice(2, -2)}
-                  </strong>
-                );
-              }
-              return part;
-            })}
-          </p>
-        );
-      }
-
-      // Italic text (*text*)
-      if (line.includes('*') && !line.includes('**')) {
-        const parts = line.split(/(\*.*?\*)/);
-        return (
-          <p key={key} className='mb-2 leading-relaxed' style={baseStyle}>
-            {parts.map((part, i) => {
-              if (
-                part.startsWith('*') &&
-                part.endsWith('*') &&
-                !part.includes('**')
-              ) {
-                return (
-                  <em key={i} className='italic'>
-                    {part.slice(1, -1)}
-                  </em>
-                );
-              }
-              return part;
-            })}
-          </p>
-        );
       }
 
       // Empty lines for spacing
@@ -214,13 +188,138 @@ export default function MiddlePanel({
         return <div key={key} className='mb-2'></div>;
       }
 
-      // Regular paragraphs
+      // Regular paragraphs with inline elements
       return (
         <p key={key} className='mb-2 leading-relaxed' style={baseStyle}>
-          {line}
+          {parseInlineElements(line, baseStyle)}
         </p>
       );
     });
+  };
+
+  // Helper function to parse inline elements (math, bold, italic)
+  const parseInlineElements = (text: string, baseStyle: any) => {
+    const elements: React.ReactNode[] = [];
+    let currentIndex = 0;
+
+    // Regular expressions for different patterns
+    const patterns = [
+      { regex: /\$\$([^$]+)\$\$/g, type: 'displayMath' },
+      { regex: /\$([^$]+)\$/g, type: 'inlineMath' },
+      { regex: /\*\*([^*]+)\*\*/g, type: 'bold' },
+      { regex: /\*([^*]+)\*/g, type: 'italic' },
+      { regex: /\[Image: ([^\]]+)\]/g, type: 'image' },
+    ];
+
+    // Find all matches
+    const allMatches: Array<{
+      match: RegExpExecArray;
+      type: string;
+      index: number;
+    }> = [];
+
+    patterns.forEach(({ regex, type }) => {
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        allMatches.push({
+          match,
+          type,
+          index: match.index,
+        });
+      }
+    });
+
+    // Sort by position
+    allMatches.sort((a, b) => a.index - b.index);
+
+    allMatches.forEach(({ match, type }, i) => {
+      // Add text before this match
+      if (match.index > currentIndex) {
+        elements.push(text.slice(currentIndex, match.index));
+      }
+
+      // Add the matched element
+      switch (type) {
+        case 'displayMath':
+          elements.push(
+            <div
+              key={`math-${i}`}
+              className='inline-block mx-2 px-2 py-1 rounded font-mono'
+              style={{
+                backgroundColor: themeStyles.borderColor,
+                color: '#8975EA',
+                fontSize: `${baseStyle.fontSize}`,
+                fontFamily: 'var(--font-geist-mono)',
+              }}
+            >
+              {match[1]}
+            </div>
+          );
+          break;
+        case 'inlineMath':
+          elements.push(
+            <span
+              key={`math-${i}`}
+              className='inline-block mx-1 px-1 rounded font-mono'
+              style={{
+                backgroundColor: themeStyles.borderColor,
+                color: '#8975EA',
+                fontSize: `${baseStyle.fontSize}`,
+                fontFamily: 'var(--font-geist-mono)',
+              }}
+            >
+              {match[1]}
+            </span>
+          );
+          break;
+        case 'bold':
+          elements.push(
+            <strong
+              key={`bold-${i}`}
+              className='font-semibold'
+              style={{
+                backgroundColor: isHighlightEnabled
+                  ? '#8975EA40'
+                  : 'transparent',
+              }}
+            >
+              {match[1]}
+            </strong>
+          );
+          break;
+        case 'italic':
+          elements.push(
+            <em key={`italic-${i}`} className='italic'>
+              {match[1]}
+            </em>
+          );
+          break;
+        case 'image':
+          elements.push(
+            <span
+              key={`img-${i}`}
+              className='inline-flex items-center gap-1 px-2 py-1 rounded text-sm'
+              style={{
+                backgroundColor: themeStyles.borderColor,
+                color: '#9ca3af',
+              }}
+            >
+              <span>🖼️</span>
+              <span>{match[1]}</span>
+            </span>
+          );
+          break;
+      }
+
+      currentIndex = match.index + match[0].length;
+    });
+
+    // Add remaining text
+    if (currentIndex < text.length) {
+      elements.push(text.slice(currentIndex));
+    }
+
+    return elements.length > 0 ? elements : text;
   };
 
   // Navigation handlers
