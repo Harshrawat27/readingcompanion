@@ -5,14 +5,15 @@ import LeftPanel from '../components/home/LeftPanel';
 import MiddlePanel from '../components/home/MiddlePanel';
 import RightPanel from '../components/home/RightPanel';
 
-// Add PageData interface for type safety
-interface PageData {
-  pageNumber: number;
-  canvas?: HTMLCanvasElement;
-  imageData: string;
+// Add ImageData interface for type safety
+interface ImageData {
+  id: string;
+  file: File;
+  preview: string;
   extractedText?: string;
-  width: number;
-  height: number;
+  isProcessing?: boolean;
+  hasError?: boolean;
+  errorMessage?: string;
 }
 
 export default function Home() {
@@ -29,9 +30,9 @@ export default function Home() {
   const [theme, setTheme] = useState<string>('dark');
   const [isHighlightEnabled, setIsHighlightEnabled] = useState<boolean>(false);
 
-  // New state for multi-page documents
-  const [pagesData, setPagesData] = useState<PageData[]>([]);
-  const [currentPage, setCurrentPage] = useState<number>(1);
+  // New state for multi-image documents
+  const [imagesData, setImagesData] = useState<ImageData[]>([]);
+  const [currentImage, setCurrentImage] = useState<number>(1);
 
   // Left divider handlers
   const handleLeftMouseDown = useCallback(() => {
@@ -99,44 +100,46 @@ export default function Home() {
   // Application event handlers
   const handleTextExtracted = (text: string) => {
     setExtractedText(text);
-    // If we have pages but are showing single text, clear pages mode
-    if (pagesData.length > 0 && !text.includes('--- PAGE')) {
-      setPagesData([]);
-      setCurrentPage(1);
+    // If we have images but are showing single text, clear images mode
+    if (imagesData.length > 0 && !text.includes('--- IMAGE')) {
+      setImagesData([]);
+      setCurrentImage(1);
     }
   };
 
-  // New handler for multi-page documents
-  const handlePagesExtracted = (pages: PageData[]) => {
-    console.log(`App received ${pages.length} pages`);
-    setPagesData(pages);
-    setCurrentPage(1); // Reset to first page
+  // New handler for multi-image documents
+  const handleImagesUploaded = (images: ImageData[]) => {
+    console.log(`App received ${images.length} images`);
+    setImagesData(images);
+    setCurrentImage(1); // Reset to first image
 
-    // Clear any existing single-page text when switching to multi-page mode
-    setExtractedText('');
+    // Clear any existing single-image text when switching to multi-image mode
+    if (images.length > 0) {
+      setExtractedText('');
+    }
   };
 
-  // Handle page navigation
-  const handlePageChange = (pageNumber: number) => {
-    if (pageNumber >= 1 && pageNumber <= pagesData.length) {
-      setCurrentPage(pageNumber);
+  // Handle image navigation
+  const handleImageChange = (imageNumber: number) => {
+    if (imageNumber >= 1 && imageNumber <= imagesData.length) {
+      setCurrentImage(imageNumber);
 
-      // Update the main text area with the current page's text
-      const currentPageData = pagesData.find(
-        (p) => p.pageNumber === pageNumber
+      // Update the main text area with the current image's text
+      const currentImageData = imagesData.find(
+        (img, index) => index + 1 === imageNumber
       );
-      if (currentPageData?.extractedText) {
-        setExtractedText(currentPageData.extractedText);
+      if (currentImageData?.extractedText) {
+        setExtractedText(currentImageData.extractedText);
       } else {
-        setExtractedText(''); // Clear text if current page has no text yet
+        setExtractedText(''); // Clear text if current image has no text yet
       }
     }
   };
 
   const handleClearText = () => {
     setExtractedText('');
-    setPagesData([]);
-    setCurrentPage(1);
+    setImagesData([]);
+    setCurrentImage(1);
   };
 
   const handleFontSizeChange = (size: number) => {
@@ -186,9 +189,9 @@ export default function Home() {
           theme={theme}
           isHighlightEnabled={isHighlightEnabled}
           onClearText={handleClearText}
-          pages={pagesData}
-          currentPage={currentPage}
-          onPageChange={handlePageChange}
+          images={imagesData}
+          currentImage={currentImage}
+          onImageChange={handleImageChange}
         />
       </div>
 
@@ -199,12 +202,11 @@ export default function Home() {
         onMouseDown={handleRightMouseDown}
       />
 
-      {/* Right Panel - AI Features */}
+      {/* Right Panel - Image Upload */}
       <div style={{ width: `${rightWidth}%` }}>
         <RightPanel
           onTextExtracted={handleTextExtracted}
-          onPagesExtracted={handlePagesExtracted}
-          extractedText={extractedText}
+          onImagesUploaded={handleImagesUploaded}
         />
       </div>
     </div>

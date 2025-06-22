@@ -1,12 +1,13 @@
 'use client';
 
-interface PageData {
-  pageNumber: number;
-  canvas?: HTMLCanvasElement;
-  imageData: string;
+interface ImageData {
+  id: string;
+  file: File;
+  preview: string;
   extractedText?: string;
-  width: number;
-  height: number;
+  isProcessing?: boolean;
+  hasError?: boolean;
+  errorMessage?: string;
 }
 
 interface MiddlePanelProps {
@@ -15,9 +16,9 @@ interface MiddlePanelProps {
   theme: string;
   isHighlightEnabled: boolean;
   onClearText: () => void;
-  pages?: PageData[]; // New prop for multi-page documents
-  currentPage?: number; // Current page being viewed
-  onPageChange?: (pageNumber: number) => void; // Page navigation callback
+  images?: ImageData[]; // Images for multi-image documents
+  currentImage?: number; // Current image being viewed
+  onImageChange?: (imageNumber: number) => void; // Image navigation callback
 }
 
 export default function MiddlePanel({
@@ -26,9 +27,9 @@ export default function MiddlePanel({
   theme,
   isHighlightEnabled,
   onClearText,
-  pages = [],
-  currentPage = 1,
-  onPageChange,
+  images = [],
+  currentImage = 1,
+  onImageChange,
 }: MiddlePanelProps) {
   // Theme configurations
   const getThemeStyles = (theme: string) => {
@@ -57,10 +58,12 @@ export default function MiddlePanel({
   const themeStyles = getThemeStyles(theme);
 
   // Determine what content to display
-  const isMultiPageMode = pages.length > 0;
-  const currentPageData = pages.find((p) => p.pageNumber === currentPage);
-  const displayText = isMultiPageMode
-    ? currentPageData?.extractedText || ''
+  const isMultiImageMode = images.length > 0;
+  const currentImageData = images.find(
+    (img, index) => index + 1 === currentImage
+  );
+  const displayText = isMultiImageMode
+    ? currentImageData?.extractedText || ''
     : extractedText;
 
   // Simple markdown parser with theme support
@@ -221,15 +224,15 @@ export default function MiddlePanel({
   };
 
   // Navigation handlers
-  const goToPreviousPage = () => {
-    if (currentPage > 1 && onPageChange) {
-      onPageChange(currentPage - 1);
+  const goToPreviousImage = () => {
+    if (currentImage > 1 && onImageChange) {
+      onImageChange(currentImage - 1);
     }
   };
 
-  const goToNextPage = () => {
-    if (currentPage < pages.length && onPageChange) {
-      onPageChange(currentPage + 1);
+  const goToNextImage = () => {
+    if (currentImage < images.length && onImageChange) {
+      onImageChange(currentImage + 1);
     }
   };
 
@@ -248,40 +251,40 @@ export default function MiddlePanel({
       >
         <div className='flex items-center gap-4'>
           <h1 className='text-2xl font-semibold'>
-            {isMultiPageMode ? 'Document Reader' : 'Extracted Text'}
+            {isMultiImageMode ? 'Image Reader' : 'Extracted Text'}
           </h1>
 
-          {/* Page Navigation */}
-          {isMultiPageMode && pages.length > 0 && (
+          {/* Image Navigation */}
+          {isMultiImageMode && images.length > 0 && (
             <div className='flex items-center gap-2'>
               <button
-                onClick={goToPreviousPage}
-                disabled={currentPage <= 1}
+                onClick={goToPreviousImage}
+                disabled={currentImage <= 1}
                 className='w-8 h-8 rounded flex items-center justify-center transition-colors disabled:opacity-30'
                 style={{
                   backgroundColor:
-                    currentPage > 1 ? '#8975EA' : themeStyles.borderColor,
-                  color: currentPage > 1 ? '#ffffff' : themeStyles.textColor,
+                    currentImage > 1 ? '#8975EA' : themeStyles.borderColor,
+                  color: currentImage > 1 ? '#ffffff' : themeStyles.textColor,
                 }}
               >
                 ←
               </button>
 
               <span className='text-sm text-gray-400 min-w-[80px] text-center'>
-                Page {currentPage} of {pages.length}
+                Image {currentImage} of {images.length}
               </span>
 
               <button
-                onClick={goToNextPage}
-                disabled={currentPage >= pages.length}
+                onClick={goToNextImage}
+                disabled={currentImage >= images.length}
                 className='w-8 h-8 rounded flex items-center justify-center transition-colors disabled:opacity-30'
                 style={{
                   backgroundColor:
-                    currentPage < pages.length
+                    currentImage < images.length
                       ? '#8975EA'
                       : themeStyles.borderColor,
                   color:
-                    currentPage < pages.length
+                    currentImage < images.length
                       ? '#ffffff'
                       : themeStyles.textColor,
                 }}
@@ -296,11 +299,11 @@ export default function MiddlePanel({
           {/* Theme indicator */}
           <div className='text-xs text-gray-400 capitalize'>
             {theme} • {fontSize}px
-            {isMultiPageMode && ` • ${pages.length} pages`}
+            {isMultiImageMode && ` • ${images.length} images`}
           </div>
 
           {/* Clear button */}
-          {(extractedText || pages.length > 0) && (
+          {(extractedText || images.length > 0) && (
             <button
               onClick={onClearText}
               className='px-3 py-1 text-sm rounded border hover:bg-opacity-10 hover:bg-white transition-colors'
@@ -317,50 +320,44 @@ export default function MiddlePanel({
 
       {/* Content Area */}
       <div className='flex-1 overflow-hidden flex'>
-        {/* Page Thumbnails Sidebar (only for multi-page) */}
-        {isMultiPageMode && pages.length > 1 && (
+        {/* Image Thumbnails Sidebar (only for multi-image) */}
+        {isMultiImageMode && images.length > 1 && (
           <div
             className='w-32 border-r overflow-y-auto'
             style={{ borderColor: themeStyles.borderColor }}
           >
             <div className='p-2 space-y-2'>
-              {pages.map((page) => (
+              {images.map((image, index) => (
                 <button
-                  key={page.pageNumber}
-                  onClick={() => onPageChange && onPageChange(page.pageNumber)}
+                  key={image.id}
+                  onClick={() => onImageChange && onImageChange(index + 1)}
                   className={`w-full p-2 rounded text-left transition-colors ${
-                    currentPage === page.pageNumber ? 'ring-2' : ''
+                    currentImage === index + 1 ? 'ring-2' : ''
                   }`}
                   style={{
                     backgroundColor:
-                      currentPage === page.pageNumber
-                        ? '#8975EA20'
-                        : 'transparent',
+                      currentImage === index + 1 ? '#8975EA20' : 'transparent',
                     outline:
-                      currentPage === page.pageNumber
-                        ? '2px solid #8975EA'
-                        : 'none',
+                      currentImage === index + 1 ? '2px solid #8975EA' : 'none',
                   }}
                 >
-                  {/* Page thumbnail */}
-                  {page.imageData && (
-                    <img
-                      src={page.imageData}
-                      alt={`Page ${page.pageNumber}`}
-                      className='w-full h-16 object-cover rounded mb-1'
-                    />
-                  )}
+                  {/* Image thumbnail */}
+                  <img
+                    src={image.preview}
+                    alt={`Image ${index + 1}`}
+                    className='w-full h-16 object-cover rounded mb-1'
+                  />
                   <div className='text-xs text-center'>
                     <div
                       className={
-                        currentPage === page.pageNumber
+                        currentImage === index + 1
                           ? 'text-white font-medium'
                           : 'text-gray-400'
                       }
                     >
-                      Page {page.pageNumber}
+                      Image {index + 1}
                     </div>
-                    {page.extractedText && (
+                    {image.extractedText && (
                       <div className='text-green-400'>✓</div>
                     )}
                   </div>
@@ -387,16 +384,16 @@ export default function MiddlePanel({
             <div className='flex-1 flex items-center justify-center h-full'>
               <div className='text-center'>
                 <div className='text-4xl mb-4'>
-                  {isMultiPageMode ? '📄' : '📄'}
+                  {isMultiImageMode ? '📷' : '📄'}
                 </div>
                 <p className='text-gray-300 text-lg'>
-                  {isMultiPageMode
-                    ? `Page ${currentPage} - No text extracted yet`
-                    : 'Upload an image or PDF to extract text'}
+                  {isMultiImageMode
+                    ? `Image ${currentImage} - No text extracted yet`
+                    : 'Upload images to extract text'}
                 </p>
                 <p className='text-sm text-gray-500 mt-2'>
-                  {isMultiPageMode
-                    ? 'Click "Extract text" in the right panel to process this page'
+                  {isMultiImageMode
+                    ? 'Click "Extract" in the right panel to process this image'
                     : 'The extracted text will appear here with your formatting preferences'}
                 </p>
 
@@ -412,10 +409,13 @@ export default function MiddlePanel({
                     Pro Tips:
                   </h3>
                   <ul className='text-xs text-gray-400 space-y-1 text-left'>
+                    <li>• Upload up to 20 images at once</li>
                     <li>• Use the left panel to adjust font size and theme</li>
                     <li>• Enable highlighting to emphasize bold text</li>
-                    <li>• Navigate between pages using arrow buttons</li>
-                    <li>• Export your text in multiple formats</li>
+                    <li>• Navigate between images using arrow buttons</li>
+                    <li>
+                      • Extract text from individual images or all at once
+                    </li>
                   </ul>
                 </div>
               </div>
@@ -443,9 +443,9 @@ export default function MiddlePanel({
               Reading time: ~{Math.ceil(displayText.split(/\s+/).length / 200)}{' '}
               min
             </span>
-            {isMultiPageMode && (
+            {isMultiImageMode && (
               <span>
-                Page {currentPage}/{pages.length}
+                Image {currentImage}/{images.length}
               </span>
             )}
           </div>

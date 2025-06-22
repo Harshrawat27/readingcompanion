@@ -2,12 +2,12 @@
 
 import { useState, useRef } from 'react';
 
-// Import PDF.js directly without react-pdf since we're doing manual processing
+// Import PDF.js with proper configuration
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configure worker with a more reliable approach
+// Configure worker - use CDN for reliability
 if (typeof window !== 'undefined') {
-  // Try multiple worker sources for better compatibility
+  //   pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.min.mjs`;
   pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 }
 
@@ -38,6 +38,7 @@ export default function PDFUpload({ onPagesExtracted }: PDFUploadProps) {
   const [extractingText, setExtractingText] = useState(false);
   const [isLoadingPDF, setIsLoadingPDF] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
 
   const handleFileSelect = async (
     event: React.ChangeEvent<HTMLInputElement>
@@ -45,130 +46,126 @@ export default function PDFUpload({ onPagesExtracted }: PDFUploadProps) {
     const selectedFile = event.target.files?.[0];
     if (!selectedFile) return;
 
-    // Validate file type
     if (selectedFile.type !== 'application/pdf') {
       setError('Please select a PDF file');
       return;
     }
 
-    // Validate file size (max 50MB)
-    if (selectedFile.size > 50 * 1024 * 1024) {
-      setError('PDF size should be less than 50MB');
+    if (selectedFile.size > 20 * 1024 * 1024) {
+      setError('PDF size should be less than 20MB');
       return;
     }
 
     setFile(selectedFile);
-    setError(null);
-    setNumPages(0);
-    setPages([]);
+    clearState(); // Reset everything before loading new file
 
-    // Load PDF to get page count
-    await loadPDFForCounting(selectedFile);
+    await loadAndCountPages(selectedFile);
   };
 
-  // Convert File to ArrayBuffer
+  // Convert File to ArrayBuffer with better error handling
   const fileToArrayBuffer = (file: File): Promise<ArrayBuffer> => {
     return new Promise((resolve, reject) => {
-      console.log('Converting file to ArrayBuffer...');
       const reader = new FileReader();
-
-      reader.onload = () => {
-        console.log('File converted to ArrayBuffer successfully');
-        resolve(reader.result as ArrayBuffer);
-      };
-
-      reader.onerror = () => {
-        console.error('Error reading file:', reader.error);
-        reject(reader.error);
-      };
-
+      reader.onload = (e) => resolve(e.target?.result as ArrayBuffer);
+      reader.onerror = (err) => reject(err);
       reader.readAsArrayBuffer(file);
     });
   };
 
-  // Load PDF for page counting with better error handling
-  const loadPDFForCounting = async (file: File) => {
+  const loadAndCountPages = async (file: File) => {
     setIsLoadingPDF(true);
+    setError(null);
+
     try {
-      console.log('Loading PDF for page counting...');
       const arrayBuffer = await fileToArrayBuffer(file);
-
-      console.log('ArrayBuffer created, length:', arrayBuffer.byteLength);
-
-      // Create loading task with timeout and better error handling
       const loadingTask = pdfjsLib.getDocument({
         data: arrayBuffer,
-        verbosity: 0, // Reduce console noise
-        useSystemFonts: true,
-        disableFontFace: false,
-        // Remove external dependencies that might cause issues
-        cMapUrl: undefined,
-        cMapPacked: undefined,
-        standardFontDataUrl: undefined,
+        verbosity: 0,
+      });
+      const loadedPdfDoc = await loadingTask.promise;
+
+      setNumPages(loadedPdfDoc.numPages);
+      setPdfDoc(loadedPdfDoc); // <-- Store the PDF document object
+      setError(null);
+    } catch (err) {
+      console.error('PDF load error:', err);
+      let errorMessage = 'Failed to load PDF. ';
+      if (err instanceof Error) {
+        if (err.name === 'PasswordException') {
+          errorMessage += 'The PDF is password protected.';
+        } else if (err.name === 'InvalidPDFException') {
+          errorMessage += 'The file is not a valid or is a corrupted PDF.';
+        } else {
+          errorMessage += err.message;
+        }
+      }
+      setError(errorMessage);
+      setNumPages(0);
+      setPdfDoc(null);
+    } finally {
+      setIsLoadingPDF(false);
+    }
+  };
+
+  // Load PDF for page counting with simplified configuration
+  const loadPDFForCounting = async (file: File) => {
+    setIsLoadingPDF(true);
+    setError(null);
+
+    try {
+      console.log('Loading PDF...');
+      const arrayBuffer = await fileToArrayBuffer(file);
+      console.log('ArrayBuffer created successfully');
+
+      // Simplified PDF.js configuration - remove problematic options
+      const loadingTask = pdfjsLib.getDocument({
+        data: arrayBuffer,
+        verbosity: 0, // Suppress console logs
       });
 
-      console.log('Loading task created, waiting for PDF...');
+      console.log('Loading task created');
 
-      // Add progress monitoring
-      loadingTask.onProgress = (progress: any) => {
-        if (progress.total > 0) {
-          const percent = (progress.loaded / progress.total) * 100;
-          console.log(`PDF loading progress: ${percent.toFixed(1)}%`);
-        }
-      };
-
-      // Add timeout to prevent hanging
+      // Set shorter timeout for faster feedback
+      const timeoutMs = 10000; // 10 seconds
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(
-          () => reject(new Error('PDF loading timeout after 30 seconds')),
-          30000
+          () =>
+            reject(
+              new Error(`PDF loading timeout after ${timeoutMs / 1000} seconds`)
+            ),
+          timeoutMs
         );
       });
 
       const pdf = await Promise.race([loadingTask.promise, timeoutPromise]);
 
-      console.log('PDF loaded successfully!');
-      setNumPages(pdf.numPages);
+      console.log('PDF loaded successfully');
       console.log(`PDF has ${pdf.numPages} pages`);
+
+      setNumPages(pdf.numPages);
       setError(null);
     } catch (error) {
-      console.error('Detailed PDF load error:', error);
+      console.error('PDF load error:', error);
 
       let errorMessage = 'Failed to load PDF';
       if (error instanceof Error) {
-        console.error('Error details:', {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        });
-
-        errorMessage += `: ${error.message}`;
-
-        // Provide specific error guidance
-        if (
+        if (error.message.includes('timeout')) {
+          errorMessage =
+            'PDF loading timeout. Try a smaller or simpler PDF file.';
+        } else if (
           error.message.includes('Invalid PDF') ||
-          error.message.includes('InvalidPDFException')
+          error.message.includes('corrupted')
         ) {
           errorMessage =
             'Invalid or corrupted PDF file. Please try a different PDF.';
-        } else if (error.message.includes('timeout')) {
-          errorMessage =
-            'PDF loading timeout. The file might be too complex or corrupted.';
-        } else if (
-          error.message.includes('Worker') ||
-          error.message.includes('worker')
-        ) {
-          errorMessage =
-            'PDF worker failed to load. Please refresh the page and try again.';
-        } else if (error.message.includes('network')) {
-          errorMessage =
-            'Network error. Please check your connection and try again.';
         } else if (
           error.message.includes('Password') ||
           error.message.includes('encrypted')
         ) {
           errorMessage =
             'This PDF is password protected. Please use an unprotected PDF.';
+        } else {
+          errorMessage = `PDF loading failed: ${error.message}`;
         }
       }
 
@@ -179,65 +176,30 @@ export default function PDFUpload({ onPagesExtracted }: PDFUploadProps) {
     }
   };
 
-  // Convert a single page to image data with better error handling
-  const pageToImage = async (pageNum: number): Promise<PageData | null> => {
+  // Convert a single page to image with optimized settings
+  const pageToImage = async (
+    pageNum: number,
+    pdfToRender: pdfjsLib.PDFDocumentProxy
+  ): Promise<PageData | null> => {
     try {
-      console.log(`Processing page ${pageNum}...`);
       setCurrentProcessingPage(pageNum);
 
-      // Convert File to ArrayBuffer first
-      const arrayBuffer = await fileToArrayBuffer(file!);
-
-      const loadingTask = pdfjsLib.getDocument({
-        data: arrayBuffer,
-        verbosity: 0,
-        useSystemFonts: true,
-        disableFontFace: false,
-      });
-
-      const pdf = await loadingTask.promise;
-      const page = await pdf.getPage(pageNum);
-
-      // Set scale for good quality (2 = 2x resolution)
-      const scale = 2;
+      const page = await pdfToRender.getPage(pageNum);
+      const scale = 1.5;
       const viewport = page.getViewport({ scale });
-
-      // Create canvas with better error handling
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
 
-      if (!context) {
-        throw new Error('Failed to get canvas context');
-      }
+      if (!context) throw new Error('Failed to get canvas context');
 
       canvas.height = viewport.height;
       canvas.width = viewport.width;
 
-      // Render page to canvas with timeout
-      const renderContext = {
-        canvasContext: context,
-        viewport: viewport,
-        enableWebGL: false, // Disable WebGL for better compatibility
-      };
-
-      const renderPromise = page.render(renderContext).promise;
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(
-          () => reject(new Error(`Page ${pageNum} render timeout`)),
-          15000
-        );
-      });
-
-      await Promise.race([renderPromise, timeoutPromise]);
-
-      // Convert to base64
-      const imageData = canvas.toDataURL('image/png', 0.9); // Slightly compress
-
-      console.log(`Page ${pageNum} processed successfully`);
+      await page.render({ canvasContext: context, viewport }).promise;
+      const imageData = canvas.toDataURL('image/jpeg', 0.8);
 
       return {
         pageNumber: pageNum,
-        canvas,
         imageData,
         width: viewport.width,
         height: viewport.height,
@@ -253,9 +215,7 @@ export default function PDFUpload({ onPagesExtracted }: PDFUploadProps) {
         height: 0,
         isProcessing: false,
         hasError: true,
-        errorMessage: `Failed to process page ${pageNum}: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`,
+        errorMessage: `Failed to process page ${pageNum}`,
       };
     }
   };
@@ -270,12 +230,11 @@ export default function PDFUpload({ onPagesExtracted }: PDFUploadProps) {
         },
         body: JSON.stringify({
           image: pageData.imageData,
-          prompt: `Analyze this PDF page and extract ALL text while preserving the EXACT original formatting and structure. 
+          prompt: `Extract ALL text from this PDF page while preserving formatting and structure.
 
-CRITICAL REQUIREMENTS:
-1. Identify the text hierarchy exactly as shown (main titles, subtitles, body text)
-2. Use appropriate markdown formatting:
-   - # for main headings/titles
+REQUIREMENTS:
+1. Use markdown formatting:
+   - # for main headings
    - ## for section headings  
    - ### for subsection headings
    - Regular text for paragraphs
@@ -283,12 +242,11 @@ CRITICAL REQUIREMENTS:
    - 1. 2. 3. for numbered lists
    - **text** for bold text
    - *text* for italic text
-3. Maintain original spacing and line breaks
-4. Preserve the reading order and layout structure
-5. Keep tables in proper markdown table format if present
-6. Maintain any indentation or grouping
+2. Maintain original spacing and line breaks
+3. Preserve reading order and layout structure
+4. Keep tables in markdown format if present
 
-This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY the properly formatted markdown text with no additional commentary.`,
+This is page ${pageData.pageNumber}. Return ONLY the formatted markdown text.`,
         }),
       });
 
@@ -310,7 +268,7 @@ This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY 
 
   // Process all pages (convert to images)
   const processAllPages = async () => {
-    if (!file || numPages === 0) return;
+    if (!pdfDoc) return; // Use the stored pdfDoc object
 
     setIsProcessing(true);
     setProcessingProgress(0);
@@ -318,37 +276,14 @@ This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY 
 
     try {
       const processedPages: PageData[] = [];
-
-      // Process each page with better error handling
       for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-        try {
-          const pageData = await pageToImage(pageNum);
-          if (pageData) {
-            processedPages.push(pageData);
-          }
-        } catch (error) {
-          console.error(`Failed to process page ${pageNum}:`, error);
-          // Continue with other pages even if one fails
-          processedPages.push({
-            pageNumber: pageNum,
-            imageData: '',
-            width: 0,
-            height: 0,
-            isProcessing: false,
-            hasError: true,
-            errorMessage: `Failed to process page ${pageNum}`,
-          });
+        // Pass the loaded pdfDoc object to the rendering function
+        const pageData = await pageToImage(pageNum, pdfDoc);
+        if (pageData) {
+          processedPages.push(pageData);
         }
-
-        // Update progress
         setProcessingProgress((pageNum / numPages) * 100);
       }
-
-      console.log(
-        `Successfully processed ${
-          processedPages.filter((p) => !p.hasError).length
-        } of ${processedPages.length} pages`
-      );
       setPages(processedPages);
       onPagesExtracted(processedPages);
     } catch (error) {
@@ -374,7 +309,6 @@ This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY 
       for (let i = 0; i < pages.length; i++) {
         const page = pages[i];
 
-        // Skip pages that had errors during image processing
         if (page.hasError || !page.imageData) {
           updatedPages.push({
             ...page,
@@ -393,11 +327,8 @@ This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY 
           };
 
           updatedPages.push(updatedPage);
-
-          // Combine all pages into one document
           allExtractedText += `\n\n--- PAGE ${page.pageNumber} ---\n\n${extractedText}`;
 
-          // Update progress
           setProcessingProgress(((i + 1) / pages.length) * 100);
         } catch (error) {
           console.error(
@@ -413,7 +344,6 @@ This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY 
 
       setPages(updatedPages);
 
-      // Send the updated pages to the parent component
       if (allExtractedText.trim()) {
         onPagesExtracted(updatedPages);
       }
@@ -426,14 +356,19 @@ This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY 
     }
   };
 
-  const clearSelection = () => {
-    setFile(null);
+  const clearState = () => {
+    setError(null);
     setNumPages(0);
     setPages([]);
-    setError(null);
     setProcessingProgress(0);
     setCurrentProcessingPage(0);
     setIsLoadingPDF(false);
+    setPdfDoc(null);
+  };
+
+  const clearSelection = () => {
+    setFile(null);
+    clearState();
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -460,7 +395,7 @@ This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY 
             <div className='text-2xl'>📄</div>
             <div className='text-sm'>Click to select a PDF</div>
             <div className='text-xs text-gray-500'>
-              PDF documents only (max 50MB)
+              PDF documents only (max 20MB)
             </div>
           </div>
         </label>
@@ -601,7 +536,7 @@ This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY 
                 <div className='flex items-center gap-2'>
                   {!page.hasError && (
                     <span className='text-gray-500'>
-                      {Math.round(page.width / 2)}×{Math.round(page.height / 2)}
+                      {Math.round(page.width)}×{Math.round(page.height)}
                     </span>
                   )}
                   {page.extractedText ? (
@@ -629,17 +564,9 @@ This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY 
           }}
         >
           <div className='text-sm'>{error}</div>
-          {error.includes('Worker') && (
-            <div className='text-xs mt-2 text-gray-400'>
-              Try refreshing the page and uploading the PDF again.
-            </div>
-          )}
-          {error.includes('timeout') && (
-            <div className='text-xs mt-2 text-gray-400'>
-              This PDF might be too complex. Try a simpler PDF or smaller file
-              size.
-            </div>
-          )}
+          <div className='text-xs mt-2 text-gray-400'>
+            Try a smaller PDF file or refresh the page if the problem persists.
+          </div>
         </div>
       )}
 
@@ -652,11 +579,11 @@ This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY 
           How it works:
         </h3>
         <ul className='text-xs text-gray-400 space-y-1'>
-          <li>• Upload a PDF document</li>
-          <li>• Step 1: Convert pages to high-quality images</li>
+          <li>• Upload a PDF document (max 20MB)</li>
+          <li>• Step 1: Convert pages to images</li>
           <li>• Step 2: Extract text using AI vision</li>
           <li>• Text appears in main panel with formatting</li>
-          <li>• Images and layout are preserved</li>
+          <li>• Navigate between pages easily</li>
         </ul>
       </div>
     </div>
