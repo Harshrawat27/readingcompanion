@@ -1,8 +1,8 @@
 import { useState, useRef } from 'react';
 import { pdfjs } from 'react-pdf';
 
-// Set up PDF.js worker - use unpkg with the exact same version
-pdfjs.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.js`;
+// Option 3: Use CDN with exact version match
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 
 interface PDFUploadProps {
   onPagesExtracted: (pages: PageData[]) => void;
@@ -60,13 +60,19 @@ export default function PDFUpload({ onPagesExtracted }: PDFUploadProps) {
     setError('Failed to load PDF. Please try a different file.');
   };
 
-  // Load PDF for page counting - simplified approach
+  // Load PDF for page counting
   const loadPDFForCounting = async (file: File) => {
     try {
       console.log('Loading PDF for page counting...');
       const arrayBuffer = await fileToArrayBuffer(file);
 
-      const loadingTask = pdfjs.getDocument(arrayBuffer);
+      const loadingTask = pdfjs.getDocument({
+        data: arrayBuffer,
+        // Add these options to help with compatibility
+        useSystemFonts: true,
+        isEvalSupported: false,
+      });
+
       const pdf = await loadingTask.promise;
 
       setNumPages(pdf.numPages);
@@ -101,7 +107,12 @@ export default function PDFUpload({ onPagesExtracted }: PDFUploadProps) {
       // Convert File to ArrayBuffer first
       const arrayBuffer = await fileToArrayBuffer(file!);
 
-      const loadingTask = pdfjs.getDocument(arrayBuffer);
+      const loadingTask = pdfjs.getDocument({
+        data: arrayBuffer,
+        useSystemFonts: true,
+        isEvalSupported: false,
+      });
+
       const pdf = await loadingTask.promise;
       const page = await pdf.getPage(pageNum);
 
