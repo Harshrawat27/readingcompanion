@@ -5,8 +5,11 @@ import { useState, useRef } from 'react';
 // Import PDF.js directly without react-pdf since we're doing manual processing
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configure worker with a CDN that works reliably
-pdfjsLib.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.js`;
+// Configure worker with a more reliable approach
+if (typeof window !== 'undefined') {
+  // Try multiple worker sources for better compatibility
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+}
 
 interface PDFUploadProps {
   onPagesExtracted: (pages: PageData[]) => void;
@@ -33,6 +36,7 @@ export default function PDFUpload({ onPagesExtracted }: PDFUploadProps) {
   const [error, setError] = useState<string | null>(null);
   const [pages, setPages] = useState<PageData[]>([]);
   const [extractingText, setExtractingText] = useState(false);
+  const [isLoadingPDF, setIsLoadingPDF] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = async (
@@ -62,66 +66,6 @@ export default function PDFUpload({ onPagesExtracted }: PDFUploadProps) {
     await loadPDFForCounting(selectedFile);
   };
 
-  // Load PDF for page counting
-  const loadPDFForCounting = async (file: File) => {
-    try {
-      console.log('Loading PDF for page counting...');
-      const arrayBuffer = await fileToArrayBuffer(file);
-
-      console.log('ArrayBuffer created, length:', arrayBuffer.byteLength);
-
-      // Use the newer PDF.js API with proper error handling
-      const loadingTask = pdfjsLib.getDocument({
-        data: arrayBuffer,
-        verbosity: 0, // Reduce console noise
-        cMapUrl: 'https://unpkg.com/pdfjs-dist@' + pdfjsLib.version + '/cmaps/',
-        cMapPacked: true,
-        standardFontDataUrl:
-          'https://unpkg.com/pdfjs-dist@' +
-          pdfjsLib.version +
-          '/standard_fonts/',
-      });
-
-      console.log('Loading task created, waiting for PDF...');
-
-      // Add progress monitoring
-      loadingTask.onProgress = (progress: any) => {
-        if (progress.total > 0) {
-          const percent = (progress.loaded / progress.total) * 100;
-          console.log(`PDF loading progress: ${percent.toFixed(1)}%`);
-        }
-      };
-
-      const pdf = await loadingTask.promise;
-
-      console.log('PDF loaded successfully!');
-      setNumPages(pdf.numPages);
-      console.log(`PDF has ${pdf.numPages} pages`);
-      setError(null);
-    } catch (error) {
-      console.error('Detailed PDF load error:', error);
-
-      let errorMessage = 'Failed to load PDF';
-      if (error instanceof Error) {
-        errorMessage += `: ${error.message}`;
-
-        // Provide specific error guidance
-        if (error.message.includes('Invalid PDF')) {
-          errorMessage = 'Invalid PDF file. Please try a different PDF.';
-        } else if (error.message.includes('Worker')) {
-          errorMessage =
-            'PDF worker error. Please refresh the page and try again.';
-        } else if (error.message.includes('network')) {
-          errorMessage =
-            'Network error. Please check your connection and try again.';
-        }
-      }
-
-      setError(errorMessage);
-      setNumPages(0);
-    }
-  };
-
   // Convert File to ArrayBuffer
   const fileToArrayBuffer = (file: File): Promise<ArrayBuffer> => {
     return new Promise((resolve, reject) => {
@@ -142,7 +86,100 @@ export default function PDFUpload({ onPagesExtracted }: PDFUploadProps) {
     });
   };
 
-  // Convert a single page to image data
+  // Load PDF for page counting with better error handling
+  const loadPDFForCounting = async (file: File) => {
+    setIsLoadingPDF(true);
+    try {
+      console.log('Loading PDF for page counting...');
+      const arrayBuffer = await fileToArrayBuffer(file);
+
+      console.log('ArrayBuffer created, length:', arrayBuffer.byteLength);
+
+      // Create loading task with timeout and better error handling
+      const loadingTask = pdfjsLib.getDocument({
+        data: arrayBuffer,
+        verbosity: 0, // Reduce console noise
+        useSystemFonts: true,
+        disableFontFace: false,
+        // Remove external dependencies that might cause issues
+        cMapUrl: undefined,
+        cMapPacked: undefined,
+        standardFontDataUrl: undefined,
+      });
+
+      console.log('Loading task created, waiting for PDF...');
+
+      // Add progress monitoring
+      loadingTask.onProgress = (progress: any) => {
+        if (progress.total > 0) {
+          const percent = (progress.loaded / progress.total) * 100;
+          console.log(`PDF loading progress: ${percent.toFixed(1)}%`);
+        }
+      };
+
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(
+          () => reject(new Error('PDF loading timeout after 30 seconds')),
+          30000
+        );
+      });
+
+      const pdf = await Promise.race([loadingTask.promise, timeoutPromise]);
+
+      console.log('PDF loaded successfully!');
+      setNumPages(pdf.numPages);
+      console.log(`PDF has ${pdf.numPages} pages`);
+      setError(null);
+    } catch (error) {
+      console.error('Detailed PDF load error:', error);
+
+      let errorMessage = 'Failed to load PDF';
+      if (error instanceof Error) {
+        console.error('Error details:', {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+        });
+
+        errorMessage += `: ${error.message}`;
+
+        // Provide specific error guidance
+        if (
+          error.message.includes('Invalid PDF') ||
+          error.message.includes('InvalidPDFException')
+        ) {
+          errorMessage =
+            'Invalid or corrupted PDF file. Please try a different PDF.';
+        } else if (error.message.includes('timeout')) {
+          errorMessage =
+            'PDF loading timeout. The file might be too complex or corrupted.';
+        } else if (
+          error.message.includes('Worker') ||
+          error.message.includes('worker')
+        ) {
+          errorMessage =
+            'PDF worker failed to load. Please refresh the page and try again.';
+        } else if (error.message.includes('network')) {
+          errorMessage =
+            'Network error. Please check your connection and try again.';
+        } else if (
+          error.message.includes('Password') ||
+          error.message.includes('encrypted')
+        ) {
+          errorMessage =
+            'This PDF is password protected. Please use an unprotected PDF.';
+        }
+      }
+
+      setError(errorMessage);
+      setNumPages(0);
+    } finally {
+      setIsLoadingPDF(false);
+    }
+  };
+
+  // Convert a single page to image data with better error handling
   const pageToImage = async (pageNum: number): Promise<PageData | null> => {
     try {
       console.log(`Processing page ${pageNum}...`);
@@ -154,12 +191,8 @@ export default function PDFUpload({ onPagesExtracted }: PDFUploadProps) {
       const loadingTask = pdfjsLib.getDocument({
         data: arrayBuffer,
         verbosity: 0,
-        cMapUrl: 'https://unpkg.com/pdfjs-dist@' + pdfjsLib.version + '/cmaps/',
-        cMapPacked: true,
-        standardFontDataUrl:
-          'https://unpkg.com/pdfjs-dist@' +
-          pdfjsLib.version +
-          '/standard_fonts/',
+        useSystemFonts: true,
+        disableFontFace: false,
       });
 
       const pdf = await loadingTask.promise;
@@ -169,22 +202,36 @@ export default function PDFUpload({ onPagesExtracted }: PDFUploadProps) {
       const scale = 2;
       const viewport = page.getViewport({ scale });
 
-      // Create canvas
+      // Create canvas with better error handling
       const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d')!;
+      const context = canvas.getContext('2d');
+
+      if (!context) {
+        throw new Error('Failed to get canvas context');
+      }
+
       canvas.height = viewport.height;
       canvas.width = viewport.width;
 
-      // Render page to canvas
+      // Render page to canvas with timeout
       const renderContext = {
         canvasContext: context,
         viewport: viewport,
+        enableWebGL: false, // Disable WebGL for better compatibility
       };
 
-      await page.render(renderContext).promise;
+      const renderPromise = page.render(renderContext).promise;
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(
+          () => reject(new Error(`Page ${pageNum} render timeout`)),
+          15000
+        );
+      });
+
+      await Promise.race([renderPromise, timeoutPromise]);
 
       // Convert to base64
-      const imageData = canvas.toDataURL('image/png');
+      const imageData = canvas.toDataURL('image/png', 0.9); // Slightly compress
 
       console.log(`Page ${pageNum} processed successfully`);
 
@@ -272,18 +319,36 @@ This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY 
     try {
       const processedPages: PageData[] = [];
 
-      // Process each page
+      // Process each page with better error handling
       for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-        const pageData = await pageToImage(pageNum);
-        if (pageData) {
-          processedPages.push(pageData);
+        try {
+          const pageData = await pageToImage(pageNum);
+          if (pageData) {
+            processedPages.push(pageData);
+          }
+        } catch (error) {
+          console.error(`Failed to process page ${pageNum}:`, error);
+          // Continue with other pages even if one fails
+          processedPages.push({
+            pageNumber: pageNum,
+            imageData: '',
+            width: 0,
+            height: 0,
+            isProcessing: false,
+            hasError: true,
+            errorMessage: `Failed to process page ${pageNum}`,
+          });
         }
 
         // Update progress
         setProcessingProgress((pageNum / numPages) * 100);
       }
 
-      console.log(`Successfully processed ${processedPages.length} pages`);
+      console.log(
+        `Successfully processed ${
+          processedPages.filter((p) => !p.hasError).length
+        } of ${processedPages.length} pages`
+      );
       setPages(processedPages);
       onPagesExtracted(processedPages);
     } catch (error) {
@@ -308,6 +373,15 @@ This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY 
 
       for (let i = 0; i < pages.length; i++) {
         const page = pages[i];
+
+        // Skip pages that had errors during image processing
+        if (page.hasError || !page.imageData) {
+          updatedPages.push({
+            ...page,
+            extractedText: `[Error: Page ${page.pageNumber} could not be processed]`,
+          });
+          continue;
+        }
 
         try {
           console.log(`Extracting text from page ${page.pageNumber}...`);
@@ -359,6 +433,7 @@ This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY 
     setError(null);
     setProcessingProgress(0);
     setCurrentProcessingPage(0);
+    setIsLoadingPDF(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -407,6 +482,7 @@ This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY 
                   </div>
                   <div className='text-xs text-gray-400'>
                     {(file.size / (1024 * 1024)).toFixed(1)} MB
+                    {isLoadingPDF && ' • Loading...'}
                     {numPages > 0 && ` • ${numPages} pages`}
                   </div>
                 </div>
@@ -418,12 +494,22 @@ This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY 
                 ×
               </button>
             </div>
+
+            {/* PDF Loading Progress */}
+            {isLoadingPDF && (
+              <div className='mt-2'>
+                <div className='text-xs text-gray-400 mb-1'>Loading PDF...</div>
+                <div className='h-1 bg-gray-700 rounded overflow-hidden'>
+                  <div className='h-full bg-blue-500 animate-pulse'></div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* Action Buttons */}
-      {file && numPages > 0 && (
+      {file && numPages > 0 && !isLoadingPDF && (
         <div className='space-y-3'>
           {/* Step 1: Convert to Images */}
           <button
@@ -444,7 +530,7 @@ This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY 
                 </span>
               </div>
             ) : pages.length > 0 ? (
-              `✓ ${pages.length} pages converted`
+              `✓ ${pages.filter((p) => !p.hasError).length} pages converted`
             ) : (
               `Convert ${numPages} pages to images`
             )}
@@ -469,7 +555,9 @@ This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY 
                   </span>
                 </div>
               ) : (
-                `Extract text from all ${pages.length} pages`
+                `Extract text from all ${
+                  pages.filter((p) => !p.hasError).length
+                } pages`
               )}
             </button>
           )}
@@ -511,9 +599,11 @@ This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY 
               >
                 <span className='text-gray-300'>Page {page.pageNumber}</span>
                 <div className='flex items-center gap-2'>
-                  <span className='text-gray-500'>
-                    {Math.round(page.width / 2)}×{Math.round(page.height / 2)}
-                  </span>
+                  {!page.hasError && (
+                    <span className='text-gray-500'>
+                      {Math.round(page.width / 2)}×{Math.round(page.height / 2)}
+                    </span>
+                  )}
                   {page.extractedText ? (
                     <span className='text-green-400'>✓ Text</span>
                   ) : page.hasError ? (
@@ -542,6 +632,12 @@ This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY 
           {error.includes('Worker') && (
             <div className='text-xs mt-2 text-gray-400'>
               Try refreshing the page and uploading the PDF again.
+            </div>
+          )}
+          {error.includes('timeout') && (
+            <div className='text-xs mt-2 text-gray-400'>
+              This PDF might be too complex. Try a simpler PDF or smaller file
+              size.
             </div>
           )}
         </div>
