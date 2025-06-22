@@ -1,10 +1,8 @@
 import { useState, useRef } from 'react';
-import { pdfjs, Document, Page } from 'react-pdf';
-import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
-import 'react-pdf/dist/esm/Page/TextLayer.css';
+import { pdfjs } from 'react-pdf';
 
-// Set up PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
+// Set up PDF.js worker - use unpkg with the exact same version
+pdfjs.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.js`;
 
 interface PDFUploadProps {
   onPagesExtracted: (pages: PageData[]) => void;
@@ -62,16 +60,26 @@ export default function PDFUpload({ onPagesExtracted }: PDFUploadProps) {
     setError('Failed to load PDF. Please try a different file.');
   };
 
-  // Load PDF for page counting
+  // Load PDF for page counting - simplified approach
   const loadPDFForCounting = async (file: File) => {
     try {
+      console.log('Loading PDF for page counting...');
       const arrayBuffer = await fileToArrayBuffer(file);
-      const pdf = await pdfjs.getDocument(arrayBuffer).promise;
+
+      const loadingTask = pdfjs.getDocument(arrayBuffer);
+      const pdf = await loadingTask.promise;
+
       setNumPages(pdf.numPages);
-      console.log(`PDF loaded with ${pdf.numPages} pages`);
+      console.log(`PDF loaded successfully with ${pdf.numPages} pages`);
+      setError(null);
     } catch (error) {
       console.error('PDF load error:', error);
-      setError('Failed to load PDF. Please try a different file.');
+      setError(
+        `Failed to load PDF: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      );
+      setNumPages(0);
     }
   };
 
@@ -88,9 +96,13 @@ export default function PDFUpload({ onPagesExtracted }: PDFUploadProps) {
   // Convert a single page to image data
   const pageToImage = async (pageNum: number): Promise<PageData | null> => {
     try {
+      console.log(`Processing page ${pageNum}...`);
+
       // Convert File to ArrayBuffer first
       const arrayBuffer = await fileToArrayBuffer(file!);
-      const pdf = await pdfjs.getDocument(arrayBuffer).promise;
+
+      const loadingTask = pdfjs.getDocument(arrayBuffer);
+      const pdf = await loadingTask.promise;
       const page = await pdf.getPage(pageNum);
 
       // Set scale for good quality (2 = 2x resolution)
@@ -111,6 +123,8 @@ export default function PDFUpload({ onPagesExtracted }: PDFUploadProps) {
 
       // Convert to base64
       const imageData = canvas.toDataURL('image/png');
+
+      console.log(`Page ${pageNum} processed successfully`);
 
       return {
         pageNumber: pageNum,

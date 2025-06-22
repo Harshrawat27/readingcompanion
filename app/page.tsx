@@ -5,6 +5,16 @@ import LeftPanel from '../components/home/LeftPanel';
 import MiddlePanel from '../components/home/MiddlePanel';
 import RightPanel from '../components/home/RightPanel';
 
+// Add PageData interface for type safety
+interface PageData {
+  pageNumber: number;
+  canvas?: HTMLCanvasElement;
+  imageData: string;
+  extractedText?: string;
+  width: number;
+  height: number;
+}
+
 export default function Home() {
   // Layout state
   const [leftWidth, setLeftWidth] = useState(20);
@@ -18,6 +28,10 @@ export default function Home() {
   const [fontSize, setFontSize] = useState<number>(14);
   const [theme, setTheme] = useState<string>('dark');
   const [isHighlightEnabled, setIsHighlightEnabled] = useState<boolean>(false);
+
+  // New state for multi-page documents
+  const [pagesData, setPagesData] = useState<PageData[]>([]);
+  const [currentPage, setCurrentPage] = useState<number>(1);
 
   // Left divider handlers
   const handleLeftMouseDown = useCallback(() => {
@@ -87,8 +101,20 @@ export default function Home() {
     setExtractedText(text);
   };
 
+  // New handler for multi-page documents
+  const handlePagesExtracted = (pages: PageData[]) => {
+    console.log(`App received ${pages.length} pages`);
+    setPagesData(pages);
+    setCurrentPage(1); // Reset to first page
+
+    // Clear any existing single-page text
+    setExtractedText('');
+  };
+
   const handleClearText = () => {
     setExtractedText('');
+    setPagesData([]);
+    setCurrentPage(1);
   };
 
   const handleFontSizeChange = (size: number) => {
@@ -152,6 +178,7 @@ export default function Home() {
       <div style={{ width: `${rightWidth}%` }}>
         <RightPanel
           onTextExtracted={handleTextExtracted}
+          onPagesExtracted={handlePagesExtracted}
           extractedText={extractedText}
         />
       </div>

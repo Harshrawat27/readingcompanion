@@ -1,23 +1,36 @@
 'use client';
 
 import { useState } from 'react';
-import ImageToText from '../ImageToText';
+import PDFUpload from '../PDFUpload';
+
+// Import our types
+interface PageData {
+  pageNumber: number;
+  canvas?: HTMLCanvasElement;
+  imageData: string;
+  extractedText?: string;
+  width: number;
+  height: number;
+}
 
 interface RightPanelProps {
   onTextExtracted: (text: string) => void;
+  onPagesExtracted?: (pages: PageData[]) => void; // New prop for multi-page
   extractedText: string;
 }
 
 export default function RightPanel({
   onTextExtracted,
+  onPagesExtracted,
   extractedText,
 }: RightPanelProps) {
   const [activeTab, setActiveTab] = useState<string>('extract');
   const [aiProcessing, setAiProcessing] = useState(false);
   const [aiResult, setAiResult] = useState<string>('');
+  const [pagesData, setPagesData] = useState<PageData[]>([]);
 
   const tabs = [
-    { id: 'extract', label: 'Extract', icon: '📷' },
+    { id: 'extract', label: 'Extract', icon: '📄' }, // Changed icon for PDF
     { id: 'analyze', label: 'Analyze', icon: '🤖' },
     { id: 'enhance', label: 'Enhance', icon: '✨' },
   ];
@@ -75,6 +88,76 @@ export default function RightPanel({
       icon: '💡',
     },
   ];
+
+  // Handle PDF pages extracted
+  const handlePagesExtracted = (pages: PageData[]) => {
+    console.log(`Received ${pages.length} pages from PDF`);
+    setPagesData(pages);
+
+    // For now, let's just extract text from the first page to test
+    if (pages.length > 0) {
+      extractTextFromPage(pages[0]);
+    }
+
+    // Call the parent callback if provided
+    if (onPagesExtracted) {
+      onPagesExtracted(pages);
+    }
+  };
+
+  // Extract text from a single page using our existing vision API
+  const extractTextFromPage = async (pageData: PageData) => {
+    try {
+      const response = await fetch('/api/vision', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image: pageData.imageData,
+          prompt: `Analyze this PDF page and extract ALL text while preserving the EXACT original formatting and structure. 
+
+CRITICAL REQUIREMENTS:
+1. Identify the text hierarchy exactly as shown (main titles, subtitles, body text)
+2. Use appropriate markdown formatting:
+   - # for main headings/titles
+   - ## for section headings  
+   - ### for subsection headings
+   - Regular text for paragraphs
+   - - for bullet points
+   - 1. 2. 3. for numbered lists
+   - **text** for bold text
+   - *text* for italic text
+3. Maintain original spacing and line breaks
+4. Preserve the reading order and layout structure
+5. Keep tables in proper markdown table format if present
+6. Maintain any indentation or grouping
+
+This is page ${pageData.pageNumber}. Extract EVERYTHING visible and return ONLY the properly formatted markdown text with no additional commentary.`,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        const extractedText = data.text;
+
+        // Update the page data with extracted text
+        pageData.extractedText = extractedText;
+
+        // For testing, send the text to the main panel
+        onTextExtracted(
+          `=== PAGE ${pageData.pageNumber} ===\n\n${extractedText}`
+        );
+
+        console.log(`Text extracted from page ${pageData.pageNumber}`);
+      } else {
+        console.error('Failed to extract text from page:', data.error);
+      }
+    } catch (error) {
+      console.error('Error extracting text from page:', error);
+    }
+  };
 
   const handleAiFeature = async (featureId: string) => {
     if (!extractedText) {
@@ -151,6 +234,11 @@ export default function RightPanel({
       {/* Header */}
       <div className='p-4 border-b' style={{ borderColor: '#2f2d2a' }}>
         <h2 className='text-xl font-semibold'>AI Assistant</h2>
+        {pagesData.length > 0 && (
+          <div className='text-xs text-gray-400 mt-1'>
+            {pagesData.length} pages loaded
+          </div>
+        )}
       </div>
 
       {/* Tab Navigation */}
@@ -184,7 +272,48 @@ export default function RightPanel({
       <div className='flex-1 overflow-y-auto'>
         {activeTab === 'extract' && (
           <div className='p-4'>
-            <ImageToText onTextExtracted={onTextExtracted} />
+            {/* PDF Upload Component */}
+            <PDFUpload onPagesExtracted={handlePagesExtracted} />
+
+            {/* Pages Preview */}
+            {pagesData.length > 0 && (
+              <div
+                className='mt-6 p-4 rounded-lg'
+                style={{ backgroundColor: '#2a2826' }}
+              >
+                <h3
+                  className='text-sm font-medium mb-3'
+                  style={{ color: '#8975EA' }}
+                >
+                  Extracted Pages ({pagesData.length}):
+                </h3>
+                <div className='space-y-2 max-h-32 overflow-y-auto'>
+                  {pagesData.map((page) => (
+                    <div
+                      key={page.pageNumber}
+                      className='flex items-center justify-between p-2 rounded'
+                      style={{ backgroundColor: '#1f1e1d' }}
+                    >
+                      <span className='text-xs text-gray-300'>
+                        Page {page.pageNumber}
+                      </span>
+                      <div className='flex items-center gap-2'>
+                        <span className='text-xs text-gray-500'>
+                          {page.width}×{page.height}
+                        </span>
+                        <button
+                          onClick={() => extractTextFromPage(page)}
+                          className='text-xs px-2 py-1 rounded'
+                          style={{ backgroundColor: '#8975EA', color: 'white' }}
+                        >
+                          Extract
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Instructions */}
             <div
@@ -198,9 +327,9 @@ export default function RightPanel({
                 How it works:
               </h3>
               <ul className='text-xs text-gray-400 space-y-1'>
-                <li>• Select an image file (JPG, PNG, etc.)</li>
-                <li>• Click "Extract Text" to process</li>
-                <li>• AI will read and extract all visible text</li>
+                <li>• Upload a PDF document (up to 50MB)</li>
+                <li>• Each page is converted to high-quality images</li>
+                <li>• Click "Extract" on any page to get its text</li>
                 <li>• Text appears in the main panel with formatting</li>
                 <li>• Use other tabs for AI-powered analysis</li>
               </ul>
@@ -208,6 +337,7 @@ export default function RightPanel({
           </div>
         )}
 
+        {/* Keep the existing analyze and enhance tabs unchanged */}
         {activeTab === 'analyze' && (
           <div className='p-4 space-y-4'>
             <div className='mb-4'>
@@ -353,10 +483,12 @@ export default function RightPanel({
       {/* Footer */}
       <div className='p-4 border-t' style={{ borderColor: '#2f2d2a' }}>
         <div className='text-xs text-gray-500 text-center'>
-          {extractedText ? (
+          {pagesData.length > 0 ? (
+            <span>✓ {pagesData.length} pages ready for processing</span>
+          ) : extractedText ? (
             <span>✓ Text ready for AI processing</span>
           ) : (
-            <span>Upload an image to unlock AI features</span>
+            <span>Upload a PDF to unlock AI features</span>
           )}
         </div>
       </div>
