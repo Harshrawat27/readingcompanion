@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Attention Is All You Need</title>
+    <style>
+      body {
+        font-family: Georgia, serif;
+        line-height: 1.6;
+        max-width: 800px;
+        margin: 40px auto;
+        padding: 0 20px;
+        color: #000;
+      }
+      h1,
+      h2 {
+        text-align: center;
+      }
+      .authors {
+        text-align: center;
+        font-size: 14px;
+      }
+      .emails {
+        text-align: center;
+        font-size: 13px;
+        margin-bottom: 20px;
+      }
+      .abstract,
+      .content {
+        text-align: justify;
+      }
+      .abstract-title {
+        font-weight: bold;
+        margin-top: 30px;
+        margin-bottom: 5px;
+      }
+      .footnotes {
+        font-size: 11px;
+        margin-top: 20px;
+      }
+      .conference {
+        text-align: center;
+        font-size: 13px;
+        margin-top: 40px;
+        color: #444;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Attention Is All You Need</h1>
+
+    <div class="authors">
+      Ashish Vaswani<sup>*</sup>, Noam Shazeer<sup>*</sup>, Niki
+      Parmar<sup>*</sup>, Jakob Uszkoreit<sup>*</sup><br />
+      Llion Jones<sup>*</sup>, Aidan N. Gomez<sup>* †</sup>, Łukasz
+      Kaiser<sup>*</sup>, Illia Polosukhin<sup>* ‡</sup>
+    </div>
+
+    <div class="emails">
+      avaswani@google.com, noam@google.com, nikip@google.com, usz@google.com<br />
+      llion@google.com, aidan@cs.toronto.edu, lukaszkaiser@google.com<br />
+      illia.polosukhin@gmail.com
+    </div>
+
+    <div class="abstract-title">Abstract</div>
+    <div class="abstract">
+      The dominant sequence transduction models are based on complex recurrent
+      or convolutional neural networks that include an encoder and a decoder.
+      The best performing models also connect the encoder and decoder through an
+      attention mechanism. We propose a new simple network architecture, the
+      Transformer, based solely on attention mechanisms, dispensing with
+      recurrence and convolutions entirely. Experiments on two machine
+      translation tasks show these models to be superior in quality while being
+      more parallelizable and requiring significantly less time to train. Our
+      model achieves 28.4 BLEU on the WMT 2014 English-to-German translation
+      task, improving over the existing best results, including ensembles, by
+      over 2 BLEU. On the WMT 2014 English-to-French translation task, our model
+      establishes a new single-model state-of-the-art BLEU score of 41.0 after
+      training for 3.5 days on eight GPUs, a small fraction of the training
+      costs of the best models from the literature.
+    </div>
+
+    <h2>1 Introduction</h2>
+    <div class="content">
+      Recurrent neural networks, long short-term memory <sup>[12]</sup> and
+      gated recurrent <sup>[7]</sup> neural networks in particular, have been
+      firmly established as state of the art approaches in sequence modeling and
+      transduction problems such as language modeling and machine translation
+      <sup>[29,2,5]</sup>. Numerous efforts have since continued to push the
+      boundaries of recurrent language models and encoder-decoder architectures
+      <sup>[31,21,13]</sup>.
+    </div>
+
+    <div class="footnotes">
+      <p>
+        * Equal contribution. Listing order is random. Jakob proposed replacing
+        RNNs with self-attention and started the effort to evaluate this idea.
+        Ashish, with Illia, designed and implemented the first Transformer
+        models and has been crucially involved in every aspect of this work.
+        Noam proposed scaled dot-product attention, multi-head attention and the
+        attention-free position representations and became the other person
+        involved in nearly every detail. Niki designed, implemented, tuned and
+        evaluated countless model variants in our original codebase and
+        tensor2tensor. Llion also experimented with novel model variants, was
+        responsible for our initial codebase, and efficient inference and
+        visualizations. Lukasz and Aidan spent countless long days designing
+        various parts of and implementing tensor2tensor, replacing our earlier
+        codebase, greatly improving results and massively accelerating our
+        research.
+      </p>
+      <p><sup>†</sup> Work performed while at Google Brain.</p>
+      <p><sup>‡</sup> Work performed while at Google Research.</p>
+    </div>
+
+    <div class="conference">
+      31st Conference on Neural Information Processing Systems (NIPS 2017), Long
+      Beach, CA, USA.
+    </div>
+  </body>
+</html>

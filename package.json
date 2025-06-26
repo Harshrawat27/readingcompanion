@@ -15,7 +15,8 @@
     "pdfjs-dist": "^5.3.31",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-pdf": "^9.2.1"
+    "react-pdf": "^9.2.1",
+    "showdown": "^2.1.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -23,6 +24,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/showdown": "^2.0.6",
     "eslint": "^9",
     "eslint-config-next": "15.3.4",
     "tailwindcss": "^4",

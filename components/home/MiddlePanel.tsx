@@ -1,13 +1,17 @@
-'use client';
+import { useMemo } from 'react';
+import {
+  markdownToHtml,
+  getWordCount,
+  getReadingTime,
+} from '../../utils/markdownConverter';
 
-interface ImageData {
-  id: string;
-  file: File;
-  preview: string;
+interface PageData {
+  pageNumber: number;
+  canvas?: HTMLCanvasElement;
+  imageData: string;
   extractedText?: string;
-  isProcessing?: boolean;
-  hasError?: boolean;
-  errorMessage?: string;
+  width: number;
+  height: number;
 }
 
 interface MiddlePanelProps {
@@ -16,9 +20,9 @@ interface MiddlePanelProps {
   theme: string;
   isHighlightEnabled: boolean;
   onClearText: () => void;
-  images?: ImageData[]; // Images for multi-image documents
-  currentImage?: number; // Current image being viewed
-  onImageChange?: (imageNumber: number) => void; // Image navigation callback
+  pages?: PageData[];
+  currentPage?: number;
+  onPageChange?: (pageNumber: number) => void;
 }
 
 export default function MiddlePanel({
@@ -27,9 +31,9 @@ export default function MiddlePanel({
   theme,
   isHighlightEnabled,
   onClearText,
-  images = [],
-  currentImage = 1,
-  onImageChange,
+  pages = [],
+  currentPage = 1,
+  onPageChange,
 }: MiddlePanelProps) {
   // Theme configurations
   const getThemeStyles = (theme: string) => {
@@ -58,280 +62,44 @@ export default function MiddlePanel({
   const themeStyles = getThemeStyles(theme);
 
   // Determine what content to display
-  const isMultiImageMode = images.length > 0;
-  const currentImageData = images.find(
-    (img, index) => index + 1 === currentImage
-  );
-  const displayText = isMultiImageMode
-    ? currentImageData?.extractedText || ''
+  const isMultiPageMode = pages.length > 0;
+  const currentPageData = pages.find((p) => p.pageNumber === currentPage);
+  const displayText = isMultiPageMode
+    ? currentPageData?.extractedText || ''
     : extractedText;
 
-  // Enhanced markdown parser with math support
-  const parseMarkdown = (text: string) => {
-    return text.split('\n').map((line, index) => {
-      const key = `line-${index}`;
-      const baseStyle = {
-        fontSize: `${fontSize}px`,
-        color: themeStyles.textColor,
-      };
+  // Convert markdown to HTML using Showdown
+  const htmlContent = useMemo(() => {
+    if (!displayText) return '';
+    return markdownToHtml(displayText);
+  }, [displayText]);
 
-      // Main headings (# )
-      if (line.startsWith('# ')) {
-        return (
-          <h1
-            key={key}
-            className='font-bold mb-4 mt-6'
-            style={{
-              ...baseStyle,
-              fontSize: `${fontSize + 8}px`,
-              color: themeStyles.textColor,
-            }}
-          >
-            {line.substring(2)}
-          </h1>
-        );
-      }
+  // Calculate stats
+  const wordCount = useMemo(() => getWordCount(htmlContent), [htmlContent]);
+  const readingTime = useMemo(() => getReadingTime(htmlContent), [htmlContent]);
 
-      // Subheadings (## )
-      if (line.startsWith('## ')) {
-        return (
-          <h2
-            key={key}
-            className='font-semibold mb-3 mt-5'
-            style={{
-              ...baseStyle,
-              fontSize: `${fontSize + 4}px`,
-              color: themeStyles.textColor,
-            }}
-          >
-            {line.substring(3)}
-          </h2>
-        );
-      }
-
-      // Smaller headings (### )
-      if (line.startsWith('### ')) {
-        return (
-          <h3
-            key={key}
-            className='font-medium mb-2 mt-4'
-            style={{
-              ...baseStyle,
-              fontSize: `${fontSize + 2}px`,
-              color: themeStyles.textColor,
-            }}
-          >
-            {line.substring(4)}
-          </h3>
-        );
-      }
-
-      // Display math ($...$)
-      if (line.trim().startsWith('$') && line.trim().endsWith('$')) {
-        const mathContent = line.trim().slice(2, -2);
-        return (
-          <div key={key} className='my-4 text-center'>
-            <div
-              className='inline-block p-3 rounded font-mono'
-              style={{
-                backgroundColor: themeStyles.borderColor,
-                color: '#8975EA',
-                fontSize: `${fontSize + 2}px`,
-                fontFamily: 'var(--font-geist-mono)',
-              }}
-            >
-              {mathContent}
-            </div>
-          </div>
-        );
-      }
-
-      // Bullet points (- )
-      if (line.startsWith('- ')) {
-        return (
-          <div key={key} className='flex items-start mb-1'>
-            <span
-              className='mr-2 mt-1'
-              style={{ color: '#8975EA', fontSize: `${fontSize}px` }}
-            >
-              •
-            </span>
-            <span style={baseStyle}>
-              {parseInlineElements(line.substring(2), baseStyle)}
-            </span>
-          </div>
-        );
-      }
-
-      // Numbered lists (1. 2. etc.)
-      if (/^\d+\.\s/.test(line)) {
-        const match = line.match(/^(\d+)\.\s(.*)$/);
-        if (match) {
-          return (
-            <div key={key} className='flex items-start mb-1'>
-              <span
-                className='mr-2 mt-1 font-medium'
-                style={{ color: '#8975EA', fontSize: `${fontSize}px` }}
-              >
-                {match[1]}.
-              </span>
-              <span style={baseStyle}>
-                {parseInlineElements(match[2], baseStyle)}
-              </span>
-            </div>
-          );
-        }
-      }
-
-      // Empty lines for spacing
-      if (line.trim() === '') {
-        return <div key={key} className='mb-2'></div>;
-      }
-
-      // Regular paragraphs with inline elements
-      return (
-        <p key={key} className='mb-2 leading-relaxed' style={baseStyle}>
-          {parseInlineElements(line, baseStyle)}
-        </p>
-      );
-    });
-  };
-
-  // Helper function to parse inline elements (math, bold, italic)
-  const parseInlineElements = (text: string, baseStyle: any) => {
-    const elements: React.ReactNode[] = [];
-    let currentIndex = 0;
-
-    // Regular expressions for different patterns
-    const patterns = [
-      { regex: /\$\$([^$]+)\$\$/g, type: 'displayMath' },
-      { regex: /\$([^$]+)\$/g, type: 'inlineMath' },
-      { regex: /\*\*([^*]+)\*\*/g, type: 'bold' },
-      { regex: /\*([^*]+)\*/g, type: 'italic' },
-      { regex: /\[Image: ([^\]]+)\]/g, type: 'image' },
-    ];
-
-    // Find all matches
-    const allMatches: Array<{
-      match: RegExpExecArray;
-      type: string;
-      index: number;
-    }> = [];
-
-    patterns.forEach(({ regex, type }) => {
-      let match;
-      while ((match = regex.exec(text)) !== null) {
-        allMatches.push({
-          match,
-          type,
-          index: match.index,
-        });
-      }
-    });
-
-    // Sort by position
-    allMatches.sort((a, b) => a.index - b.index);
-
-    allMatches.forEach(({ match, type }, i) => {
-      // Add text before this match
-      if (match.index > currentIndex) {
-        elements.push(text.slice(currentIndex, match.index));
-      }
-
-      // Add the matched element
-      switch (type) {
-        case 'displayMath':
-          elements.push(
-            <div
-              key={`math-${i}`}
-              className='inline-block mx-2 px-2 py-1 rounded font-mono'
-              style={{
-                backgroundColor: themeStyles.borderColor,
-                color: '#8975EA',
-                fontSize: `${baseStyle.fontSize}`,
-                fontFamily: 'var(--font-geist-mono)',
-              }}
-            >
-              {match[1]}
-            </div>
-          );
-          break;
-        case 'inlineMath':
-          elements.push(
-            <span
-              key={`math-${i}`}
-              className='inline-block mx-1 px-1 rounded font-mono'
-              style={{
-                backgroundColor: themeStyles.borderColor,
-                color: '#8975EA',
-                fontSize: `${baseStyle.fontSize}`,
-                fontFamily: 'var(--font-geist-mono)',
-              }}
-            >
-              {match[1]}
-            </span>
-          );
-          break;
-        case 'bold':
-          elements.push(
-            <strong
-              key={`bold-${i}`}
-              className='font-semibold'
-              style={{
-                backgroundColor: isHighlightEnabled
-                  ? '#8975EA40'
-                  : 'transparent',
-              }}
-            >
-              {match[1]}
-            </strong>
-          );
-          break;
-        case 'italic':
-          elements.push(
-            <em key={`italic-${i}`} className='italic'>
-              {match[1]}
-            </em>
-          );
-          break;
-        case 'image':
-          elements.push(
-            <span
-              key={`img-${i}`}
-              className='inline-flex items-center gap-1 px-2 py-1 rounded text-sm'
-              style={{
-                backgroundColor: themeStyles.borderColor,
-                color: '#9ca3af',
-              }}
-            >
-              <span>🖼️</span>
-              <span>{match[1]}</span>
-            </span>
-          );
-          break;
-      }
-
-      currentIndex = match.index + match[0].length;
-    });
-
-    // Add remaining text
-    if (currentIndex < text.length) {
-      elements.push(text.slice(currentIndex));
-    }
-
-    return elements.length > 0 ? elements : text;
-  };
+  // Custom CSS styles for the HTML content
+  const htmlStyles = useMemo(() => {
+    return {
+      '--font-size': `${fontSize}px`,
+      '--text-color': themeStyles.textColor,
+      '--heading-color': themeStyles.textColor,
+      '--accent-color': '#8975EA',
+      '--highlight-bg': isHighlightEnabled ? '#8975EA40' : 'transparent',
+      '--border-color': themeStyles.borderColor,
+    } as React.CSSProperties;
+  }, [fontSize, themeStyles, isHighlightEnabled]);
 
   // Navigation handlers
-  const goToPreviousImage = () => {
-    if (currentImage > 1 && onImageChange) {
-      onImageChange(currentImage - 1);
+  const goToPreviousPage = () => {
+    if (currentPage > 1 && onPageChange) {
+      onPageChange(currentPage - 1);
     }
   };
 
-  const goToNextImage = () => {
-    if (currentImage < images.length && onImageChange) {
-      onImageChange(currentImage + 1);
+  const goToNextPage = () => {
+    if (currentPage < pages.length && onPageChange) {
+      onPageChange(currentPage + 1);
     }
   };
 
@@ -350,40 +118,40 @@ export default function MiddlePanel({
       >
         <div className='flex items-center gap-4'>
           <h1 className='text-2xl font-semibold'>
-            {isMultiImageMode ? 'Image Reader' : 'Extracted Text'}
+            {isMultiPageMode ? 'Document Reader' : 'Extracted Text'}
           </h1>
 
-          {/* Image Navigation */}
-          {isMultiImageMode && images.length > 0 && (
+          {/* Page Navigation */}
+          {isMultiPageMode && pages.length > 0 && (
             <div className='flex items-center gap-2'>
               <button
-                onClick={goToPreviousImage}
-                disabled={currentImage <= 1}
+                onClick={goToPreviousPage}
+                disabled={currentPage <= 1}
                 className='w-8 h-8 rounded flex items-center justify-center transition-colors disabled:opacity-30'
                 style={{
                   backgroundColor:
-                    currentImage > 1 ? '#8975EA' : themeStyles.borderColor,
-                  color: currentImage > 1 ? '#ffffff' : themeStyles.textColor,
+                    currentPage > 1 ? '#8975EA' : themeStyles.borderColor,
+                  color: currentPage > 1 ? '#ffffff' : themeStyles.textColor,
                 }}
               >
                 ←
               </button>
 
               <span className='text-sm text-gray-400 min-w-[80px] text-center'>
-                Image {currentImage} of {images.length}
+                Page {currentPage} of {pages.length}
               </span>
 
               <button
-                onClick={goToNextImage}
-                disabled={currentImage >= images.length}
+                onClick={goToNextPage}
+                disabled={currentPage >= pages.length}
                 className='w-8 h-8 rounded flex items-center justify-center transition-colors disabled:opacity-30'
                 style={{
                   backgroundColor:
-                    currentImage < images.length
+                    currentPage < pages.length
                       ? '#8975EA'
                       : themeStyles.borderColor,
                   color:
-                    currentImage < images.length
+                    currentPage < pages.length
                       ? '#ffffff'
                       : themeStyles.textColor,
                 }}
@@ -398,11 +166,11 @@ export default function MiddlePanel({
           {/* Theme indicator */}
           <div className='text-xs text-gray-400 capitalize'>
             {theme} • {fontSize}px
-            {isMultiImageMode && ` • ${images.length} images`}
+            {isMultiPageMode && ` • ${pages.length} pages`}
           </div>
 
           {/* Clear button */}
-          {(extractedText || images.length > 0) && (
+          {(extractedText || pages.length > 0) && (
             <button
               onClick={onClearText}
               className='px-3 py-1 text-sm rounded border hover:bg-opacity-10 hover:bg-white transition-colors'
@@ -419,44 +187,50 @@ export default function MiddlePanel({
 
       {/* Content Area */}
       <div className='flex-1 overflow-hidden flex'>
-        {/* Image Thumbnails Sidebar (only for multi-image) */}
-        {isMultiImageMode && images.length > 1 && (
+        {/* Page Thumbnails Sidebar (only for multi-page) */}
+        {isMultiPageMode && pages.length > 1 && (
           <div
             className='w-32 border-r overflow-y-auto'
             style={{ borderColor: themeStyles.borderColor }}
           >
             <div className='p-2 space-y-2'>
-              {images.map((image, index) => (
+              {pages.map((page) => (
                 <button
-                  key={image.id}
-                  onClick={() => onImageChange && onImageChange(index + 1)}
+                  key={page.pageNumber}
+                  onClick={() => onPageChange && onPageChange(page.pageNumber)}
                   className={`w-full p-2 rounded text-left transition-colors ${
-                    currentImage === index + 1 ? 'ring-2' : ''
+                    currentPage === page.pageNumber ? 'ring-2' : ''
                   }`}
                   style={{
                     backgroundColor:
-                      currentImage === index + 1 ? '#8975EA20' : 'transparent',
+                      currentPage === page.pageNumber
+                        ? '#8975EA20'
+                        : 'transparent',
                     outline:
-                      currentImage === index + 1 ? '2px solid #8975EA' : 'none',
+                      currentPage === page.pageNumber
+                        ? '2px solid #8975EA'
+                        : 'none',
                   }}
                 >
-                  {/* Image thumbnail */}
-                  <img
-                    src={image.preview}
-                    alt={`Image ${index + 1}`}
-                    className='w-full h-16 object-cover rounded mb-1'
-                  />
+                  {/* Page thumbnail */}
+                  {page.imageData && (
+                    <img
+                      src={page.imageData}
+                      alt={`Page ${page.pageNumber}`}
+                      className='w-full h-16 object-cover rounded mb-1'
+                    />
+                  )}
                   <div className='text-xs text-center'>
                     <div
                       className={
-                        currentImage === index + 1
+                        currentPage === page.pageNumber
                           ? 'text-white font-medium'
                           : 'text-gray-400'
                       }
                     >
-                      Image {index + 1}
+                      Page {page.pageNumber}
                     </div>
-                    {image.extractedText && (
+                    {page.extractedText && (
                       <div className='text-green-400'>✓</div>
                     )}
                   </div>
@@ -468,31 +242,141 @@ export default function MiddlePanel({
 
         {/* Main Content */}
         <div className='flex-1 overflow-hidden'>
-          {displayText ? (
+          {htmlContent ? (
             <div
               className='w-full h-full p-6 overflow-y-auto'
               style={{
                 backgroundColor: themeStyles.backgroundColor,
+                ...htmlStyles,
               }}
             >
-              <div className='prose prose-invert max-w-none'>
-                {parseMarkdown(displayText)}
-              </div>
+              <div
+                className='prose prose-invert max-w-none markdown-content'
+                dangerouslySetInnerHTML={{ __html: htmlContent }}
+              />
+
+              {/* Add custom CSS styles */}
+              <style jsx>{`
+                .markdown-content {
+                  font-size: var(--font-size);
+                  color: var(--text-color);
+                  line-height: 1.6;
+                }
+
+                .markdown-content .heading-1,
+                .markdown-content .heading-2,
+                .markdown-content .heading-3,
+                .markdown-content .heading-4,
+                .markdown-content .heading-5,
+                .markdown-content .heading-6 {
+                  color: var(--heading-color);
+                  font-weight: 600;
+                  margin-top: 1.5rem;
+                  margin-bottom: 0.75rem;
+                }
+
+                .markdown-content .heading-1 {
+                  font-size: calc(var(--font-size) * 1.875);
+                  border-bottom: 2px solid var(--border-color);
+                  padding-bottom: 0.5rem;
+                }
+
+                .markdown-content .heading-2 {
+                  font-size: calc(var(--font-size) * 1.5);
+                }
+
+                .markdown-content .heading-3 {
+                  font-size: calc(var(--font-size) * 1.25);
+                }
+
+                .markdown-content .markdown-paragraph {
+                  margin-bottom: 1rem;
+                  line-height: 1.7;
+                }
+
+                .markdown-content strong {
+                  font-weight: 600;
+                  background-color: var(--highlight-bg);
+                  padding: 0 2px;
+                  border-radius: 2px;
+                }
+
+                .markdown-content .markdown-list {
+                  margin: 1rem 0;
+                  padding-left: 2rem;
+                }
+
+                .markdown-content .markdown-list li {
+                  margin-bottom: 0.5rem;
+                }
+
+                .markdown-content .markdown-table {
+                  width: 100%;
+                  border-collapse: collapse;
+                  margin: 1rem 0;
+                  border: 1px solid var(--border-color);
+                }
+
+                .markdown-content .markdown-table th,
+                .markdown-content .markdown-table td {
+                  padding: 0.75rem;
+                  border: 1px solid var(--border-color);
+                  text-align: left;
+                }
+
+                .markdown-content .markdown-table th {
+                  background-color: var(--border-color);
+                  font-weight: 600;
+                }
+
+                .markdown-content .markdown-blockquote {
+                  border-left: 4px solid var(--accent-color);
+                  margin: 1rem 0;
+                  padding: 0.5rem 1rem;
+                  background-color: rgba(137, 117, 234, 0.1);
+                  font-style: italic;
+                }
+
+                .markdown-content .markdown-inline-code {
+                  background-color: var(--border-color);
+                  padding: 0.125rem 0.25rem;
+                  border-radius: 3px;
+                  font-family: 'Courier New', monospace;
+                  font-size: calc(var(--font-size) * 0.875);
+                }
+
+                .markdown-content .markdown-code-block {
+                  background-color: var(--border-color);
+                  padding: 1rem;
+                  border-radius: 6px;
+                  overflow-x: auto;
+                  margin: 1rem 0;
+                }
+
+                .markdown-content .markdown-link {
+                  color: var(--accent-color);
+                  text-decoration: underline;
+                }
+
+                .markdown-content .markdown-link:hover {
+                  color: #a78bfa;
+                }
+              `}</style>
             </div>
           ) : (
             <div className='flex-1 flex items-center justify-center h-full'>
               <div className='text-center'>
                 <div className='text-4xl mb-4'>
-                  {isMultiImageMode ? '📷' : '📄'}
+                  {isMultiPageMode ? '📄' : '📄'}
                 </div>
                 <p className='text-gray-300 text-lg'>
-                  {isMultiImageMode
-                    ? `Image ${currentImage} - No text extracted yet`
-                    : 'Upload images to extract text'}
+                  {isMultiPageMode
+                    ? `Page ${currentPage} - No text extracted yet`
+                    : 'Upload an image or PDF to extract text'}
                 </p>
                 <p className='text-sm text-gray-500 mt-2'>
-                  {isMultiImageMode
-                    ? 'Click "Extract" in the right panel to process this image'
+                  {isMultiPageMode
+                    ? 'Click "Extract text" in the right panel to process this page'
                     : 'The extracted text will appear here with your formatting preferences'}
                 </p>
 
@@ -508,13 +392,10 @@ export default function MiddlePanel({
                     Pro Tips:
                   </h3>
                   <ul className='text-xs text-gray-400 space-y-1 text-left'>
-                    <li>• Upload up to 20 images at once</li>
                     <li>• Use the left panel to adjust font size and theme</li>
                     <li>• Enable highlighting to emphasize bold text</li>
-                    <li>• Navigate between images using arrow buttons</li>
-                    <li>
-                      • Extract text from individual images or all at once
-                    </li>
+                    <li>• Navigate between pages using arrow buttons</li>
+                    <li>• Export your text in multiple formats</li>
                   </ul>
                 </div>
               </div>
@@ -524,27 +405,18 @@ export default function MiddlePanel({
       </div>
 
       {/* Footer Stats */}
-      {displayText && (
+      {htmlContent && (
         <div
           className='p-4 border-t'
           style={{ borderColor: themeStyles.borderColor }}
         >
           <div className='flex justify-between text-xs text-gray-500'>
-            <span>
-              Words:{' '}
-              {
-                displayText.split(/\s+/).filter((word) => word.length > 0)
-                  .length
-              }
-            </span>
-            <span>Characters: {displayText.length}</span>
-            <span>
-              Reading time: ~{Math.ceil(displayText.split(/\s+/).length / 200)}{' '}
-              min
-            </span>
-            {isMultiImageMode && (
+            <span>Words: {wordCount.toLocaleString()}</span>
+            <span>Characters: {displayText.length.toLocaleString()}</span>
+            <span>Reading time: ~{readingTime} min</span>
+            {isMultiPageMode && (
               <span>
-                Image {currentImage}/{images.length}
+                Page {currentPage}/{pages.length}
               </span>
             )}
           </div>
