@@ -10,6 +10,7 @@ interface ImageData {
   isProcessing?: boolean;
   hasError?: boolean;
   errorMessage?: string;
+  processingProgress?: number; // 0-100 for individual image progress
 }
 
 interface ImageToTextProps {
@@ -23,9 +24,18 @@ export default function ImageToText({
 }: ImageToTextProps) {
   const [images, setImages] = useState<ImageData[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [currentProcessingIndex, setCurrentProcessingIndex] = useState(-1);
+  const [processingStats, setProcessingStats] = useState({
+    completed: 0,
+    total: 0,
+    currentBatch: 0,
+    totalBatches: 0,
+  });
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Configuration
+  const BATCH_SIZE = 5; // Process 5 images simultaneously
+  const MAX_RETRIES = 2;
 
   // Convert file to base64
   const fileToBase64 = (file: File): Promise<string> => {
@@ -77,6 +87,7 @@ export default function ImageToText({
           preview,
           isProcessing: false,
           hasError: false,
+          processingProgress: 0,
         };
         newImages.push(imageData);
       } catch (err) {
@@ -89,16 +100,20 @@ export default function ImageToText({
     onImagesUploaded(updatedImages);
   };
 
-  // Extract text from a single image
-  const extractTextFromImage = async (image: ImageData): Promise<string> => {
-    const response = await fetch('/api/vision', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        image: image.preview,
-        prompt: `Analyze this image and extract ALL text while preserving the EXACT original formatting and structure. 
+  // Extract text from a single image with retry logic
+  const extractTextFromImage = async (
+    image: ImageData,
+    retryCount = 0
+  ): Promise<string> => {
+    try {
+      const response = await fetch('/api/vision', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image: image.preview,
+          prompt: `Analyze this image and extract ALL text while preserving the EXACT original formatting and structure. 
 
 CRITICAL REQUIREMENTS:
 1. Identify the text hierarchy exactly as shown (main titles, subtitles, body text)
@@ -124,121 +139,289 @@ CRITICAL REQUIREMENTS:
 9. Do NOT wrap content in code blocks unless it's actual code
 
 Extract EVERYTHING visible and return ONLY the properly formatted markdown text with no additional commentary. Pay special attention to mathematical formulas and scientific notation.`,
-      }),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to process image');
+      }
+
+      if (data.success) {
+        return data.text;
+      } else {
+        throw new Error('No text could be extracted from the image');
+      }
+    } catch (error) {
+      console.error(
+        `Error extracting text from image (attempt ${retryCount + 1}):`,
+        error
+      );
+
+      // Retry logic
+      if (
+        retryCount < MAX_RETRIES &&
+        error instanceof Error &&
+        (error.message.includes('timeout') ||
+          error.message.includes('rate limit'))
+      ) {
+        // Wait a bit before retrying
+        await new Promise((resolve) =>
+          setTimeout(resolve, (retryCount + 1) * 1000)
+        );
+        return extractTextFromImage(image, retryCount + 1);
+      }
+
+      throw error;
+    }
+  };
+
+  // Update image state helper
+  const updateImageState = (imageId: string, updates: Partial<ImageData>) => {
+    setImages((prevImages) => {
+      const updatedImages = prevImages.map((img) =>
+        img.id === imageId ? { ...img, ...updates } : img
+      );
+
+      // If this update includes extracted text, notify parent immediately
+      if (updates.extractedText) {
+        const updatedImage = updatedImages.find((img) => img.id === imageId);
+        if (updatedImage?.extractedText) {
+          onTextExtracted(updatedImage.extractedText, updatedImages);
+          onImagesUploaded(updatedImages);
+        }
+      }
+
+      return updatedImages;
+    });
+  };
+
+  // Process a single batch of images
+  const processBatch = async (batch: ImageData[], batchNumber: number) => {
+    console.log(`Processing batch ${batchNumber + 1}: ${batch.length} images`);
+
+    // Set all images in batch to processing state
+    batch.forEach((image) => {
+      updateImageState(image.id, {
+        isProcessing: true,
+        hasError: false,
+        processingProgress: 0,
+      });
     });
 
-    const data = await response.json();
+    // Process all images in batch simultaneously
+    const batchPromises = batch.map(async (image) => {
+      try {
+        // Simulate progress updates (since we can't track real API progress)
+        const progressInterval = setInterval(() => {
+          updateImageState(image.id, {
+            processingProgress: Math.min(
+              (image.processingProgress || 0) + 10,
+              90
+            ),
+          });
+        }, 200);
 
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to process image');
-    }
+        const text = await extractTextFromImage(image);
 
-    if (data.success) {
-      return data.text;
-    } else {
-      throw new Error('No text could be extracted from the image');
-    }
+        clearInterval(progressInterval);
+
+        updateImageState(image.id, {
+          extractedText: text,
+          isProcessing: false,
+          processingProgress: 100,
+        });
+
+        return { success: true, image, text };
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : 'Failed to process image';
+
+        updateImageState(image.id, {
+          isProcessing: false,
+          hasError: true,
+          errorMessage,
+          processingProgress: 0,
+        });
+
+        return { success: false, image, error: errorMessage };
+      }
+    });
+
+    // Wait for all images in batch to complete
+    const results = await Promise.all(batchPromises);
+
+    // Update completion stats
+    const successCount = results.filter((r) => r.success).length;
+    setProcessingStats((prev) => ({
+      ...prev,
+      completed: prev.completed + successCount,
+      currentBatch: batchNumber + 1,
+    }));
+
+    return results;
   };
 
   // Extract text from a single image by ID
   const processSingleImage = async (imageId: string) => {
-    const imageIndex = images.findIndex((img) => img.id === imageId);
-    if (imageIndex === -1) return;
+    const image = images.find((img) => img.id === imageId);
+    if (!image) return;
 
-    const updatedImages = [...images];
-    updatedImages[imageIndex] = {
-      ...updatedImages[imageIndex],
+    updateImageState(imageId, {
       isProcessing: true,
       hasError: false,
-    };
-    setImages(updatedImages);
+      processingProgress: 0,
+    });
 
     try {
-      const text = await extractTextFromImage(updatedImages[imageIndex]);
-      updatedImages[imageIndex] = {
-        ...updatedImages[imageIndex],
-        extractedText: text,
-        isProcessing: false,
-      };
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setImages((prevImages) => {
+          const currentImage = prevImages.find((img) => img.id === imageId);
+          if (currentImage && currentImage.isProcessing) {
+            return prevImages.map((img) =>
+              img.id === imageId
+                ? {
+                    ...img,
+                    processingProgress: Math.min(
+                      (img.processingProgress || 0) + 15,
+                      90
+                    ),
+                  }
+                : img
+            );
+          }
+          return prevImages;
+        });
+      }, 300);
 
-      setImages(updatedImages);
-      onTextExtracted(text, updatedImages);
+      const text = await extractTextFromImage(image);
+
+      clearInterval(progressInterval);
+
+      // Update state and notify parent
+      setImages((prevImages) => {
+        const updatedImages = prevImages.map((img) =>
+          img.id === imageId
+            ? {
+                ...img,
+                extractedText: text,
+                isProcessing: false,
+                processingProgress: 100,
+              }
+            : img
+        );
+
+        // Notify parent with the extracted text and updated images
+        onTextExtracted(text, updatedImages);
+        onImagesUploaded(updatedImages);
+
+        return updatedImages;
+      });
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : 'Failed to process image';
-      updatedImages[imageIndex] = {
-        ...updatedImages[imageIndex],
+
+      updateImageState(imageId, {
         isProcessing: false,
         hasError: true,
         errorMessage,
-      };
-      setImages(updatedImages);
+        processingProgress: 0,
+      });
+
       setError(errorMessage);
     }
   };
 
-  // Extract text from all images
+  // Extract text from all images using batch processing
   const processAllImages = async () => {
     if (images.length === 0) return;
 
+    // Filter out already processed images
+    const unprocessedImages = images.filter(
+      (img) => !img.extractedText && !img.hasError
+    );
+
+    if (unprocessedImages.length === 0) {
+      // All images already processed, just combine text
+      combineAndReturnText();
+      return;
+    }
+
     setIsProcessing(true);
     setError(null);
-    const updatedImages = [...images];
-    let combinedText = '';
+
+    // Calculate batches
+    const batches: ImageData[][] = [];
+    for (let i = 0; i < unprocessedImages.length; i += BATCH_SIZE) {
+      batches.push(unprocessedImages.slice(i, i + BATCH_SIZE));
+    }
+
+    setProcessingStats({
+      completed: 0,
+      total: unprocessedImages.length,
+      currentBatch: 0,
+      totalBatches: batches.length,
+    });
 
     try {
-      for (let i = 0; i < updatedImages.length; i++) {
-        if (updatedImages[i].extractedText) {
-          // Skip already processed images
-          combinedText += `\n\n--- IMAGE ${i + 1} ---\n\n${
-            updatedImages[i].extractedText
-          }`;
-          continue;
+      // Process batches sequentially to avoid overwhelming the API
+      for (let i = 0; i < batches.length; i++) {
+        await processBatch(batches[i], i);
+
+        // Small delay between batches to be nice to the API
+        if (i < batches.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
         }
-
-        setCurrentProcessingIndex(i);
-        updatedImages[i] = {
-          ...updatedImages[i],
-          isProcessing: true,
-          hasError: false,
-        };
-        setImages([...updatedImages]);
-
-        try {
-          const text = await extractTextFromImage(updatedImages[i]);
-          updatedImages[i] = {
-            ...updatedImages[i],
-            extractedText: text,
-            isProcessing: false,
-          };
-
-          combinedText += `\n\n--- IMAGE ${i + 1} ---\n\n${text}`;
-        } catch (err) {
-          const errorMessage =
-            err instanceof Error ? err.message : 'Failed to process image';
-          updatedImages[i] = {
-            ...updatedImages[i],
-            isProcessing: false,
-            hasError: true,
-            errorMessage,
-          };
-          combinedText += `\n\n--- IMAGE ${
-            i + 1
-          } ---\n\n[Error: ${errorMessage}]`;
-        }
-
-        setImages([...updatedImages]);
       }
 
-      if (combinedText.trim()) {
-        onTextExtracted(combinedText.trim(), updatedImages);
-      }
+      // After all processing is complete, combine results
+      setTimeout(() => {
+        combineAndReturnText();
+      }, 500);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to process images');
     } finally {
       setIsProcessing(false);
-      setCurrentProcessingIndex(-1);
+      setProcessingStats({
+        completed: 0,
+        total: 0,
+        currentBatch: 0,
+        totalBatches: 0,
+      });
     }
+  };
+
+  // Combine all extracted text and return to parent
+  const combineAndReturnText = () => {
+    setImages((currentImages) => {
+      let combinedText = '';
+
+      currentImages.forEach((image, index) => {
+        if (image.extractedText) {
+          combinedText += `\n\n--- IMAGE ${index + 1} ---\n\n${
+            image.extractedText
+          }`;
+        } else if (image.hasError) {
+          combinedText += `\n\n--- IMAGE ${index + 1} ---\n\n[Error: ${
+            image.errorMessage || 'Failed to process'
+          }]`;
+        }
+      });
+
+      if (combinedText.trim()) {
+        console.log(
+          'Sending combined text to parent:',
+          combinedText.length,
+          'characters'
+        );
+        onTextExtracted(combinedText.trim(), currentImages);
+        onImagesUploaded(currentImages);
+      }
+
+      return currentImages;
+    });
   };
 
   // Remove an image
@@ -260,6 +443,11 @@ Extract EVERYTHING visible and return ONLY the properly formatted markdown text 
       fileInputRef.current.value = '';
     }
   };
+
+  // Calculate processing statistics
+  const processedCount = images.filter((img) => img.extractedText).length;
+  const errorCount = images.filter((img) => img.hasError).length;
+  const processingCount = images.filter((img) => img.isProcessing).length;
 
   return (
     <div className='w-full p-4'>
@@ -292,16 +480,83 @@ Extract EVERYTHING visible and return ONLY the properly formatted markdown text 
         </label>
       </div>
 
+      {/* Processing Status Bar */}
+      {isProcessing && (
+        <div
+          className='mb-4 p-3 rounded-lg'
+          style={{ backgroundColor: '#2a2826' }}
+        >
+          <div className='flex items-center justify-between mb-2'>
+            <span className='text-sm font-medium' style={{ color: '#8975EA' }}>
+              Processing Images...
+            </span>
+            <span className='text-xs text-gray-400'>
+              Batch {processingStats.currentBatch}/
+              {processingStats.totalBatches}
+            </span>
+          </div>
+
+          <div className='space-y-2'>
+            <div className='flex justify-between text-xs text-gray-400'>
+              <span>
+                Progress: {processingStats.completed}/{processingStats.total}
+              </span>
+              <span>
+                {Math.round(
+                  (processingStats.completed / processingStats.total) * 100
+                )}
+                %
+              </span>
+            </div>
+
+            <div
+              className='h-2 rounded-full overflow-hidden'
+              style={{ backgroundColor: '#3a3836' }}
+            >
+              <div
+                className='h-full transition-all duration-300 rounded-full'
+                style={{
+                  backgroundColor: '#8975EA',
+                  width: `${
+                    (processingStats.completed / processingStats.total) * 100
+                  }%`,
+                }}
+              />
+            </div>
+
+            <div className='text-xs text-gray-500'>
+              Processing {BATCH_SIZE} images simultaneously per batch
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Images Grid */}
       {images.length > 0 && (
         <div className='mb-4'>
           <div className='flex items-center justify-between mb-3'>
             <h3 className='text-sm font-medium' style={{ color: '#8975EA' }}>
               Images ({images.length}):
+              {processedCount > 0 && (
+                <span className='ml-2 text-xs text-green-400'>
+                  {processedCount} processed
+                </span>
+              )}
+              {errorCount > 0 && (
+                <span className='ml-2 text-xs text-red-400'>
+                  {errorCount} failed
+                </span>
+              )}
+              {processingCount > 0 && (
+                <span className='ml-2 text-xs text-yellow-400'>
+                  {processingCount} processing
+                </span>
+              )}
             </h3>
             <button
               onClick={clearAllImages}
               className='text-xs text-red-400 hover:text-red-300'
+              disabled={isProcessing}
             >
               Clear All
             </button>
@@ -322,18 +577,23 @@ Extract EVERYTHING visible and return ONLY the properly formatted markdown text 
                     className='w-full h-24 object-cover rounded'
                   />
 
-                  {/* Processing Overlay */}
-                  {(image.isProcessing ||
-                    (isProcessing && currentProcessingIndex === index)) && (
-                    <div className='absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded'>
-                      <div className='w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin'></div>
+                  {/* Processing Overlay with Progress */}
+                  {image.isProcessing && (
+                    <div className='absolute inset-0 bg-black bg-opacity-50 flex flex-col items-center justify-center rounded'>
+                      <div className='w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin mb-1'></div>
+                      {image.processingProgress !== undefined && (
+                        <div className='text-white text-xs font-medium'>
+                          {Math.round(image.processingProgress)}%
+                        </div>
+                      )}
                     </div>
                   )}
 
                   {/* Remove Button */}
                   <button
                     onClick={() => removeImage(image.id)}
-                    className='absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs'
+                    disabled={image.isProcessing}
+                    className='absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs disabled:opacity-50'
                     style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}
                   >
                     ×
@@ -365,7 +625,8 @@ Extract EVERYTHING visible and return ONLY the properly formatted markdown text 
                     ) : (
                       <button
                         onClick={() => processSingleImage(image.id)}
-                        className='text-xs px-2 py-1 rounded transition-colors'
+                        disabled={isProcessing}
+                        className='text-xs px-2 py-1 rounded transition-colors disabled:opacity-50'
                         style={{ backgroundColor: '#8975EA', color: 'white' }}
                       >
                         Extract
@@ -401,12 +662,13 @@ Extract EVERYTHING visible and return ONLY the properly formatted markdown text 
             <div className='flex items-center justify-center gap-2'>
               <div className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin'></div>
               <span>
-                Processing image {currentProcessingIndex + 1} of {images.length}
-                ...
+                Processing {processingStats.completed}/{processingStats.total}{' '}
+                images (Batch {processingStats.currentBatch}/
+                {processingStats.totalBatches})
               </span>
             </div>
           ) : (
-            `Extract Text from All ${images.length} Images`
+            `Extract Text from All ${images.length} Images (${BATCH_SIZE} at a time)`
           )}
         </button>
       )}
@@ -414,7 +676,7 @@ Extract EVERYTHING visible and return ONLY the properly formatted markdown text 
       {/* Error Display */}
       {error && (
         <div
-          className='p-3 rounded-lg border'
+          className='p-3 rounded-lg border mb-4'
           style={{
             backgroundColor: '#2a1a1a',
             borderColor: '#ff6b6b',
@@ -433,9 +695,12 @@ Extract EVERYTHING visible and return ONLY the properly formatted markdown text 
         <ul className='text-xs text-gray-400 space-y-1'>
           <li>• Select up to 20 images at once</li>
           <li>• Extract text from individual images or all at once</li>
+          <li>
+            • Batch processing: {BATCH_SIZE} images processed simultaneously
+          </li>
+          <li>• Real-time progress tracking with visual indicators</li>
+          <li>• Automatic retry for failed requests</li>
           <li>• Text appears in the main panel with formatting</li>
-          <li>• Images are processed using AI vision</li>
-          <li>• Original formatting and structure are preserved</li>
         </ul>
       </div>
     </div>

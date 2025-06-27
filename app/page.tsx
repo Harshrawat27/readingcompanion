@@ -16,6 +16,15 @@ interface ImageData {
   errorMessage?: string;
 }
 
+// PageData interface to match MiddlePanel expectations
+interface PageData {
+  pageNumber: number;
+  imageData: string;
+  extractedText?: string;
+  width: number;
+  height: number;
+}
+
 export default function Home() {
   // Layout state
   const [leftWidth, setLeftWidth] = useState(20);
@@ -97,11 +106,25 @@ export default function Home() {
     };
   });
 
+  // Convert ImageData to PageData format for MiddlePanel
+  const convertImagesToPages = (images: ImageData[]) => {
+    return images.map((image, index) => ({
+      pageNumber: index + 1,
+      imageData: image.preview,
+      extractedText: image.extractedText,
+      width: 800, // Default width
+      height: 600, // Default height
+    }));
+  };
+
   // Application event handlers
   const handleTextExtracted = (text: string) => {
+    console.log('Text extracted in main app:', text.substring(0, 100) + '...');
     setExtractedText(text);
-    // If we have images but are showing single text, clear images mode
-    if (imagesData.length > 0 && !text.includes('--- IMAGE')) {
+
+    // If text contains multi-image markers, we're in multi-image mode
+    // Otherwise, clear multi-image state for single image mode
+    if (!text.includes('--- IMAGE')) {
       setImagesData([]);
       setCurrentImage(1);
     }
@@ -111,23 +134,22 @@ export default function Home() {
   const handleImagesUploaded = (images: ImageData[]) => {
     console.log(`App received ${images.length} images`);
     setImagesData(images);
-    setCurrentImage(1); // Reset to first image
 
-    // Clear any existing single-image text when switching to multi-image mode
+    // If we have images, reset to first image
     if (images.length > 0) {
-      setExtractedText('');
+      setCurrentImage(1);
     }
+
+    // Don't clear extracted text here - let the text extraction handle it
   };
 
-  // Handle image navigation
-  const handleImageChange = (imageNumber: number) => {
-    if (imageNumber >= 1 && imageNumber <= imagesData.length) {
-      setCurrentImage(imageNumber);
+  // Handle image navigation for multi-image mode
+  const handleImageChange = (pageNumber: number) => {
+    if (pageNumber >= 1 && pageNumber <= imagesData.length) {
+      setCurrentImage(pageNumber);
 
       // Update the main text area with the current image's text
-      const currentImageData = imagesData.find(
-        (img, index) => index + 1 === imageNumber
-      );
+      const currentImageData = imagesData[pageNumber - 1]; // Array is 0-indexed
       if (currentImageData?.extractedText) {
         setExtractedText(currentImageData.extractedText);
       } else {
@@ -189,9 +211,9 @@ export default function Home() {
           theme={theme}
           isHighlightEnabled={isHighlightEnabled}
           onClearText={handleClearText}
-          images={imagesData}
-          currentImage={currentImage}
-          onImageChange={handleImageChange}
+          pages={convertImagesToPages(imagesData)}
+          currentPage={currentImage}
+          onPageChange={handleImageChange}
         />
       </div>
 
