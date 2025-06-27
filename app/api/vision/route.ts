@@ -50,8 +50,8 @@ export async function POST(request: NextRequest) {
 
     // Clean up the markdown (remove any potential wrapper text)
     const cleanedMarkdown = cleanMarkdownOutput(extractedText);
-    console.log(cleanedMarkdown);
-    console.log(extractedText);
+    // console.log(cleanedMarkdown);
+    // console.log(extractedText);
 
     return NextResponse.json({
       success: true,
