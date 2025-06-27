@@ -1,9 +1,5 @@
 import { useMemo } from 'react';
-import {
-  markdownToHtml,
-  getWordCount,
-  getReadingTime,
-} from '../../utils/markdownConverter';
+import MarkdownRenderer from '../MarkdownRenderer';
 
 interface PageData {
   pageNumber: number;
@@ -68,27 +64,15 @@ export default function MiddlePanel({
     ? currentPageData?.extractedText || ''
     : extractedText;
 
-  // Convert markdown to HTML using Showdown
-  const htmlContent = useMemo(() => {
-    if (!displayText) return '';
-    return markdownToHtml(displayText);
+  // Calculate stats
+  const wordCount = useMemo(() => {
+    if (!displayText) return 0;
+    return displayText.split(/\s+/).filter((word) => word.length > 0).length;
   }, [displayText]);
 
-  // Calculate stats
-  const wordCount = useMemo(() => getWordCount(htmlContent), [htmlContent]);
-  const readingTime = useMemo(() => getReadingTime(htmlContent), [htmlContent]);
-
-  // Custom CSS styles for the HTML content
-  const htmlStyles = useMemo(() => {
-    return {
-      '--font-size': `${fontSize}px`,
-      '--text-color': themeStyles.textColor,
-      '--heading-color': themeStyles.textColor,
-      '--accent-color': '#8975EA',
-      '--highlight-bg': isHighlightEnabled ? '#8975EA40' : 'transparent',
-      '--border-color': themeStyles.borderColor,
-    } as React.CSSProperties;
-  }, [fontSize, themeStyles, isHighlightEnabled]);
+  const readingTime = useMemo(() => {
+    return Math.max(1, Math.ceil(wordCount / 200));
+  }, [wordCount]);
 
   // Navigation handlers
   const goToPreviousPage = () => {
@@ -242,55 +226,61 @@ export default function MiddlePanel({
 
         {/* Main Content */}
         <div className='flex-1 overflow-hidden'>
-          {htmlContent ? (
+          {displayText ? (
             <div
               className='w-full h-full p-6 overflow-y-auto'
               style={{
                 backgroundColor: themeStyles.backgroundColor,
-                ...htmlStyles,
               }}
             >
-              <div
-                className='prose prose-invert max-w-none markdown-content'
-                dangerouslySetInnerHTML={{ __html: htmlContent }}
+              <MarkdownRenderer
+                markdownText={displayText}
+                fontSize={fontSize}
+                theme={theme}
+                isHighlightEnabled={isHighlightEnabled}
               />
 
-              {/* Add custom CSS styles */}
-              <style jsx>{`
+              {/* CSS Styles for Markdown Content */}
+              <style jsx global>{`
                 .markdown-content {
-                  font-size: var(--font-size);
-                  color: var(--text-color);
-                  line-height: 1.6;
+                  font-family: var(--font-geist-sans), -apple-system,
+                    BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                 }
 
-                .markdown-content .heading-1,
-                .markdown-content .heading-2,
-                .markdown-content .heading-3,
-                .markdown-content .heading-4,
-                .markdown-content .heading-5,
-                .markdown-content .heading-6 {
+                .markdown-content h1,
+                .markdown-content h2,
+                .markdown-content h3,
+                .markdown-content h4,
+                .markdown-content h5,
+                .markdown-content h6 {
                   color: var(--heading-color);
                   font-weight: 600;
-                  margin-top: 1.5rem;
-                  margin-bottom: 0.75rem;
+                  margin-top: 2rem;
+                  margin-bottom: 1rem;
+                  line-height: 1.3;
                 }
 
-                .markdown-content .heading-1 {
-                  font-size: calc(var(--font-size) * 1.875);
+                .markdown-content h1 {
+                  font-size: calc(var(--font-size) * 2);
                   border-bottom: 2px solid var(--border-color);
                   padding-bottom: 0.5rem;
+                  margin-bottom: 1.5rem;
                 }
 
-                .markdown-content .heading-2 {
-                  font-size: calc(var(--font-size) * 1.5);
+                .markdown-content h2 {
+                  font-size: calc(var(--font-size) * 1.6);
                 }
 
-                .markdown-content .heading-3 {
-                  font-size: calc(var(--font-size) * 1.25);
+                .markdown-content h3 {
+                  font-size: calc(var(--font-size) * 1.3);
                 }
 
-                .markdown-content .markdown-paragraph {
-                  margin-bottom: 1rem;
+                .markdown-content h4 {
+                  font-size: calc(var(--font-size) * 1.1);
+                }
+
+                .markdown-content p {
+                  margin-bottom: 1.2rem;
                   line-height: 1.7;
                 }
 
@@ -301,65 +291,120 @@ export default function MiddlePanel({
                   border-radius: 2px;
                 }
 
-                .markdown-content .markdown-list {
+                .markdown-content em {
+                  font-style: italic;
+                  color: #a78bfa;
+                }
+
+                .markdown-content ul,
+                .markdown-content ol {
                   margin: 1rem 0;
                   padding-left: 2rem;
                 }
 
-                .markdown-content .markdown-list li {
+                .markdown-content li {
                   margin-bottom: 0.5rem;
+                  line-height: 1.6;
                 }
 
-                .markdown-content .markdown-table {
+                .markdown-content table {
                   width: 100%;
                   border-collapse: collapse;
-                  margin: 1rem 0;
+                  margin: 1.5rem 0;
                   border: 1px solid var(--border-color);
+                  border-radius: 6px;
+                  overflow: hidden;
                 }
 
-                .markdown-content .markdown-table th,
-                .markdown-content .markdown-table td {
+                .markdown-content th,
+                .markdown-content td {
                   padding: 0.75rem;
                   border: 1px solid var(--border-color);
                   text-align: left;
+                  vertical-align: top;
                 }
 
-                .markdown-content .markdown-table th {
+                .markdown-content th {
                   background-color: var(--border-color);
                   font-weight: 600;
                 }
 
-                .markdown-content .markdown-blockquote {
+                .markdown-content blockquote {
                   border-left: 4px solid var(--accent-color);
-                  margin: 1rem 0;
-                  padding: 0.5rem 1rem;
+                  margin: 1.5rem 0;
+                  padding: 1rem 1.5rem;
                   background-color: rgba(137, 117, 234, 0.1);
                   font-style: italic;
+                  border-radius: 0 6px 6px 0;
                 }
 
-                .markdown-content .markdown-inline-code {
+                .markdown-content code {
                   background-color: var(--border-color);
-                  padding: 0.125rem 0.25rem;
-                  border-radius: 3px;
+                  padding: 0.2rem 0.4rem;
+                  border-radius: 4px;
                   font-family: 'Courier New', monospace;
-                  font-size: calc(var(--font-size) * 0.875);
+                  font-size: calc(var(--font-size) * 0.9);
+                  color: #a78bfa;
                 }
 
-                .markdown-content .markdown-code-block {
+                .markdown-content pre {
                   background-color: var(--border-color);
-                  padding: 1rem;
-                  border-radius: 6px;
+                  padding: 1.5rem;
+                  border-radius: 8px;
                   overflow-x: auto;
+                  margin: 1.5rem 0;
+                  font-family: 'Courier New', monospace;
+                  font-size: calc(var(--font-size) * 0.9);
+                  line-height: 1.5;
+                }
+
+                .markdown-content pre code {
+                  background: none;
+                  padding: 0;
+                  border-radius: 0;
+                  color: #e5e7eb;
+                }
+
+                .markdown-content a {
+                  color: var(--accent-color);
+                  text-decoration: underline;
+                  text-decoration-color: rgba(137, 117, 234, 0.5);
+                }
+
+                .markdown-content a:hover {
+                  color: #a78bfa;
+                  text-decoration-color: #a78bfa;
+                }
+
+                .markdown-content hr {
+                  border: none;
+                  height: 2px;
+                  background-color: var(--border-color);
+                  margin: 2rem 0;
+                  border-radius: 1px;
+                }
+
+                .markdown-content del {
+                  text-decoration: line-through;
+                  opacity: 0.7;
+                }
+
+                .markdown-content img {
+                  max-width: 100%;
+                  height: auto;
+                  border-radius: 6px;
                   margin: 1rem 0;
                 }
 
-                .markdown-content .markdown-link {
-                  color: var(--accent-color);
-                  text-decoration: underline;
-                }
+                /* Responsive adjustments */
+                @media (max-width: 768px) {
+                  .markdown-content {
+                    font-size: calc(var(--font-size) * 0.9);
+                  }
 
-                .markdown-content .markdown-link:hover {
-                  color: #a78bfa;
+                  .markdown-content table {
+                    font-size: calc(var(--font-size) * 0.8);
+                  }
                 }
               `}</style>
             </div>
@@ -405,7 +450,7 @@ export default function MiddlePanel({
       </div>
 
       {/* Footer Stats */}
-      {htmlContent && (
+      {displayText && (
         <div
           className='p-4 border-t'
           style={{ borderColor: themeStyles.borderColor }}
