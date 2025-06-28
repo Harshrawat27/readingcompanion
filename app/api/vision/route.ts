@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Enhanced prompt for better markdown output
-    const defaultPrompt = `extract text from this image and give me in markdown format. No explanations, no metadata, no additional commentary.`;
+    const defaultPrompt = `Extract only the text content from the image(s) and output it in clean, valid Markdown format. Do not include explanations, metadata, or commentary. Pay close attention to the beginning of each image—some may start mid-sentence or include file names or headers. Do not assume any content is a heading unless it's clearly formatted as one. Maintain natural text flow across images that are part of the same document. For mathematical expression no need to give them in markdown format give them directly ready for html`;
 
     // Call OpenAI Vision API
     const response = await openai.chat.completions.create({
@@ -50,8 +50,8 @@ export async function POST(request: NextRequest) {
 
     // Clean up the markdown (remove any potential wrapper text)
     const cleanedMarkdown = cleanMarkdownOutput(extractedText);
-    // console.log(cleanedMarkdown);
-    // console.log(extractedText);
+    console.log(cleanedMarkdown);
+    console.log(extractedText);
 
     return NextResponse.json({
       success: true,
