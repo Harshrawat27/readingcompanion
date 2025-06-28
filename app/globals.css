@@ -70,10 +70,10 @@ button[style*='8975EA']:focus-visible {
 }
 
 /* Textarea focus uses subtle secondary color */
-textarea:focus {
+/* textarea:focus {
   border-color: var(--border-dark) !important;
   box-shadow: 0 0 0 2px rgba(74, 69, 63, 0.3) !important;
-}
+} */
 
 /* Smooth transitions */
 button,
@@ -122,4 +122,8 @@ input[type='range']::-moz-range-thumb {
   cursor: pointer;
   border: 2px solid #ffffff;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.nextjs-toast {
+  display: none !important;
 }

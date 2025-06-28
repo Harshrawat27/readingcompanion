@@ -1,9 +1,10 @@
+// app/page.tsx
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
 import LeftPanel from '../components/home/LeftPanel';
 import MiddlePanel from '../components/home/MiddlePanel';
-import RightPanel from '../components/home/RightPanel';
+import ChatPanel from '../components/home/ChatPanel';
 
 // Add ImageData interface for type safety
 interface ImageData {
@@ -39,9 +40,9 @@ export default function Home() {
   const [theme, setTheme] = useState<string>('dark');
   const [isHighlightEnabled, setIsHighlightEnabled] = useState<boolean>(false);
 
-  // New state for multi-image documents
-  const [imagesData, setImagesData] = useState<ImageData[]>([]);
-  const [currentImage, setCurrentImage] = useState<number>(1);
+  // New state for multi-page documents
+  const [pages, setPages] = useState<PageData[]>([]);
+  const [currentPage, setCurrentPage] = useState<number>(1);
 
   // Left divider handlers
   const handleLeftMouseDown = useCallback(() => {
@@ -107,7 +108,7 @@ export default function Home() {
   });
 
   // Convert ImageData to PageData format for MiddlePanel
-  const convertImagesToPages = (images: ImageData[]) => {
+  const convertImagesToPages = (images: ImageData[]): PageData[] => {
     return images.map((image, index) => ({
       pageNumber: index + 1,
       imageData: image.preview,
@@ -118,50 +119,52 @@ export default function Home() {
   };
 
   // Application event handlers
-  const handleTextExtracted = (text: string) => {
+  const handleTextExtracted = (text: string, images?: ImageData[]) => {
     console.log('Text extracted in main app:', text.substring(0, 100) + '...');
     setExtractedText(text);
 
-    // If text contains multi-image markers, we're in multi-image mode
-    // Otherwise, clear multi-image state for single image mode
-    if (!text.includes('--- IMAGE')) {
-      setImagesData([]);
-      setCurrentImage(1);
-    }
-  };
+    // If we have images, convert them to pages
+    if (images && images.length > 0) {
+      const newPages = convertImagesToPages(images);
+      setPages(newPages);
 
-  // New handler for multi-image documents
-  const handleImagesUploaded = (images: ImageData[]) => {
-    console.log(`App received ${images.length} images`);
-    setImagesData(images);
-
-    // If we have images, reset to first image
-    if (images.length > 0) {
-      setCurrentImage(1);
-    }
-
-    // Don't clear extracted text here - let the text extraction handle it
-  };
-
-  // Handle image navigation for multi-image mode
-  const handleImageChange = (pageNumber: number) => {
-    if (pageNumber >= 1 && pageNumber <= imagesData.length) {
-      setCurrentImage(pageNumber);
-
-      // Update the main text area with the current image's text
-      const currentImageData = imagesData[pageNumber - 1]; // Array is 0-indexed
-      if (currentImageData?.extractedText) {
-        setExtractedText(currentImageData.extractedText);
+      // If text contains multi-image markers, we're in multi-image mode
+      if (text.includes('--- IMAGE')) {
+        // Set current page to show the first image with extracted text
+        const firstPageWithText = newPages.find((p) => p.extractedText);
+        if (firstPageWithText) {
+          setCurrentPage(firstPageWithText.pageNumber);
+        }
       } else {
-        setExtractedText(''); // Clear text if current image has no text yet
+        // Single image mode - show first page
+        setCurrentPage(1);
+      }
+    } else {
+      // Clear pages if no images
+      setPages([]);
+      setCurrentPage(1);
+    }
+  };
+
+  // Handle page navigation for multi-page mode
+  const handlePageChange = (pageNumber: number) => {
+    if (pageNumber >= 1 && pageNumber <= pages.length) {
+      setCurrentPage(pageNumber);
+
+      // Update the main text area with the current page's text
+      const currentPageData = pages.find((p) => p.pageNumber === pageNumber);
+      if (currentPageData?.extractedText) {
+        setExtractedText(currentPageData.extractedText);
+      } else {
+        setExtractedText(''); // Clear text if current page has no text yet
       }
     }
   };
 
   const handleClearText = () => {
     setExtractedText('');
-    setImagesData([]);
-    setCurrentImage(1);
+    setPages([]);
+    setCurrentPage(1);
   };
 
   const handleFontSizeChange = (size: number) => {
@@ -177,6 +180,12 @@ export default function Home() {
   };
 
   const rightWidth = 100 - leftWidth - middleWidth;
+
+  // Get current page text for chat context
+  const currentPageText =
+    pages.length > 0
+      ? pages.find((p) => p.pageNumber === currentPage)?.extractedText || ''
+      : extractedText;
 
   return (
     <div
@@ -203,17 +212,18 @@ export default function Home() {
         onMouseDown={handleLeftMouseDown}
       />
 
-      {/* Middle Panel - Text Display */}
+      {/* Middle Panel - Document Display & Upload */}
       <div style={{ width: `${middleWidth}%` }}>
         <MiddlePanel
           extractedText={extractedText}
           fontSize={fontSize}
           theme={theme}
           isHighlightEnabled={isHighlightEnabled}
+          onTextExtracted={handleTextExtracted}
           onClearText={handleClearText}
-          pages={convertImagesToPages(imagesData)}
-          currentPage={currentImage}
-          onPageChange={handleImageChange}
+          pages={pages}
+          currentPage={currentPage}
+          onPageChange={handlePageChange}
         />
       </div>
 
@@ -224,11 +234,12 @@ export default function Home() {
         onMouseDown={handleRightMouseDown}
       />
 
-      {/* Right Panel - Image Upload */}
+      {/* Right Panel - Chat */}
       <div style={{ width: `${rightWidth}%` }}>
-        <RightPanel
-          onTextExtracted={handleTextExtracted}
-          onImagesUploaded={handleImagesUploaded}
+        <ChatPanel
+          extractedText={currentPageText}
+          currentPage={currentPage}
+          totalPages={pages.length > 0 ? pages.length : undefined}
         />
       </div>
     </div>
