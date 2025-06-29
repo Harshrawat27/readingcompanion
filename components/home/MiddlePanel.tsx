@@ -1,10 +1,5 @@
-// components/home/MiddlePanel.tsx
-'use client';
-
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import MarkdownRenderer from '../MarkdownRenderer';
-import ImageToText from '../ImageToText';
-import PDFUpload from '../PDFUpload';
 
 interface PageData {
   pageNumber: number;
@@ -15,22 +10,11 @@ interface PageData {
   height: number;
 }
 
-interface ImageData {
-  id: string;
-  file: File;
-  preview: string;
-  extractedText?: string;
-  isProcessing?: boolean;
-  hasError?: boolean;
-  errorMessage?: string;
-}
-
 interface MiddlePanelProps {
   extractedText: string;
   fontSize: number;
   theme: string;
   isHighlightEnabled: boolean;
-  onTextExtracted: (text: string, images?: ImageData[]) => void;
   onClearText: () => void;
   pages?: PageData[];
   currentPage?: number;
@@ -42,15 +26,11 @@ export default function MiddlePanel({
   fontSize,
   theme,
   isHighlightEnabled,
-  onTextExtracted,
   onClearText,
   pages = [],
   currentPage = 1,
   onPageChange,
 }: MiddlePanelProps) {
-  const [uploadMode, setUploadMode] = useState<'image' | 'pdf' | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-
   // Theme configurations
   const getThemeStyles = (theme: string) => {
     switch (theme) {
@@ -94,9 +74,6 @@ export default function MiddlePanel({
     return Math.max(1, Math.ceil(wordCount / 200));
   }, [wordCount]);
 
-  // Check if we have any content
-  const hasContent = displayText || pages.length > 0;
-
   // Navigation handlers
   const goToPreviousPage = () => {
     if (currentPage > 1 && onPageChange) {
@@ -108,35 +85,6 @@ export default function MiddlePanel({
     if (currentPage < pages.length && onPageChange) {
       onPageChange(currentPage + 1);
     }
-  };
-
-  // Handle upload mode selection
-  const selectUploadMode = (mode: 'image' | 'pdf') => {
-    setUploadMode(mode);
-  };
-
-  const resetToWelcome = () => {
-    setUploadMode(null);
-    onClearText();
-  };
-
-  // Handle PDF pages extraction
-  const handlePDFPagesExtracted = (pdfPages: PageData[]) => {
-    // Convert to expected format and pass to parent
-    // This will be handled by the parent component's page management
-    console.log('PDF pages extracted:', pdfPages.length);
-  };
-
-  // Handle image text extraction
-  const handleImageTextExtracted = (text: string, images: ImageData[]) => {
-    onTextExtracted(text, images);
-    setUploadMode(null); // Hide upload UI after successful extraction
-  };
-
-  // Handle image upload
-  const handleImagesUploaded = (images: ImageData[]) => {
-    // This can be used for progress tracking if needed
-    console.log('Images uploaded:', images.length);
   };
 
   return (
@@ -154,11 +102,7 @@ export default function MiddlePanel({
       >
         <div className='flex items-center gap-4'>
           <h1 className='text-2xl font-semibold'>
-            {hasContent
-              ? isMultiPageMode
-                ? 'Document Reader'
-                : 'Extracted Text'
-              : 'Reading Companion'}
+            {isMultiPageMode ? 'Document Reader' : 'Extracted Text'}
           </h1>
 
           {/* Page Navigation */}
@@ -209,19 +153,19 @@ export default function MiddlePanel({
             {isMultiPageMode && ` • ${pages.length} pages`}
           </div>
 
-          {/* Clear/Back button */}
-          {hasContent || uploadMode ? (
+          {/* Clear button */}
+          {(extractedText || pages.length > 0) && (
             <button
-              onClick={uploadMode ? resetToWelcome : onClearText}
+              onClick={onClearText}
               className='px-3 py-1 text-sm rounded border hover:bg-opacity-10 hover:bg-white transition-colors'
               style={{
                 borderColor: themeStyles.borderColor,
                 color: '#9ca3af',
               }}
             >
-              {uploadMode ? 'Back' : 'Clear'}
+              Clear
             </button>
-          ) : null}
+          )}
         </div>
       </div>
 
@@ -257,7 +201,7 @@ export default function MiddlePanel({
                     <img
                       src={page.imageData}
                       alt={`Page ${page.pageNumber}`}
-                      className='w-full aspect-[1/1.4142] object-cover rounded mb-1'
+                      className='w-full h-16 object-cover rounded mb-1'
                     />
                   )}
                   <div className='text-xs text-center'>
@@ -282,90 +226,7 @@ export default function MiddlePanel({
 
         {/* Main Content */}
         <div className='flex-1 overflow-hidden'>
-          {/* Welcome Screen / Upload Selection */}
-          {!hasContent && !uploadMode && (
-            <div className='flex-1 flex items-center justify-center h-full'>
-              <div className='text-center max-w-md'>
-                <div className='text-6xl mb-6'>📖</div>
-                <h2 className='text-2xl font-semibold mb-4'>
-                  Welcome to Reading Companion
-                </h2>
-                <p className='text-gray-300 text-lg mb-8'>
-                  Upload documents or images to extract and format text with AI
-                </p>
-
-                {/* Upload Options */}
-                <div className='space-y-4'>
-                  <button
-                    onClick={() => selectUploadMode('pdf')}
-                    className='w-full p-6 rounded-lg border-2 border-dashed transition-all hover:border-purple-400 hover:bg-purple-900/10'
-                    style={{ borderColor: themeStyles.borderColor }}
-                  >
-                    <div className='text-3xl mb-2'>📄</div>
-                    <div className='text-lg font-medium mb-1'>Upload PDF</div>
-                    <div className='text-sm text-gray-400'>
-                      Extract text from PDF documents with page navigation
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => selectUploadMode('image')}
-                    className='w-full p-6 rounded-lg border-2 border-dashed transition-all hover:border-purple-400 hover:bg-purple-900/10'
-                    style={{ borderColor: themeStyles.borderColor }}
-                  >
-                    <div className='text-3xl mb-2'>📷</div>
-                    <div className='text-lg font-medium mb-1'>
-                      Upload Images
-                    </div>
-                    <div className='text-sm text-gray-400'>
-                      Extract text from images using AI vision
-                    </div>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Upload Interface */}
-          {uploadMode && !hasContent && (
-            <div className='flex-1 p-6 overflow-y-auto'>
-              <div className='max-w-2xl mx-auto'>
-                {uploadMode === 'pdf' ? (
-                  <>
-                    <div className='text-center mb-6'>
-                      <div className='text-4xl mb-2'>📄</div>
-                      <h2 className='text-xl font-semibold mb-2'>
-                        Upload PDF Document
-                      </h2>
-                      <p className='text-gray-400'>
-                        Select a PDF file to extract text with page navigation
-                      </p>
-                    </div>
-                    <PDFUpload onPagesExtracted={handlePDFPagesExtracted} />
-                  </>
-                ) : (
-                  <>
-                    <div className='text-center mb-6'>
-                      <div className='text-4xl mb-2'>📷</div>
-                      <h2 className='text-xl font-semibold mb-2'>
-                        Upload Images
-                      </h2>
-                      <p className='text-gray-400'>
-                        Select images to extract text using AI vision
-                      </p>
-                    </div>
-                    <ImageToText
-                      onTextExtracted={handleImageTextExtracted}
-                      onImagesUploaded={handleImagesUploaded}
-                    />
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Text Display */}
-          {displayText && (
+          {displayText ? (
             <div
               className='w-full h-full p-6 overflow-y-auto'
               style={{
@@ -546,6 +407,43 @@ export default function MiddlePanel({
                   }
                 }
               `}</style>
+            </div>
+          ) : (
+            <div className='flex-1 flex items-center justify-center h-full'>
+              <div className='text-center'>
+                <div className='text-4xl mb-4'>
+                  {isMultiPageMode ? '📄' : '📄'}
+                </div>
+                <p className='text-gray-300 text-lg'>
+                  {isMultiPageMode
+                    ? `Page ${currentPage} - No text extracted yet`
+                    : 'Upload an image or PDF to extract text'}
+                </p>
+                <p className='text-sm text-gray-500 mt-2'>
+                  {isMultiPageMode
+                    ? 'Click "Extract text" in the right panel to process this page'
+                    : 'The extracted text will appear here with your formatting preferences'}
+                </p>
+
+                {/* Quick tips */}
+                <div
+                  className='mt-6 p-4 rounded-lg max-w-md mx-auto'
+                  style={{ backgroundColor: themeStyles.borderColor }}
+                >
+                  <h3
+                    className='text-sm font-medium mb-2'
+                    style={{ color: '#8975EA' }}
+                  >
+                    Pro Tips:
+                  </h3>
+                  <ul className='text-xs text-gray-400 space-y-1 text-left'>
+                    <li>• Use the left panel to adjust font size and theme</li>
+                    <li>• Enable highlighting to emphasize bold text</li>
+                    <li>• Navigate between pages using arrow buttons</li>
+                    <li>• Export your text in multiple formats</li>
+                  </ul>
+                </div>
+              </div>
             </div>
           )}
         </div>
