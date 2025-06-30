@@ -5,6 +5,7 @@ import { useState, useRef, useCallback } from 'react';
 import LeftPanel from '../components/home/LeftPanel';
 import MiddlePanel from '../components/home/MiddlePanel';
 import ChatPanel from '../components/home/ChatPanel';
+import ImageUploadPopup from '../components/ImageUploadPopup';
 
 // Add ImageData interface for type safety
 interface ImageData {
@@ -43,6 +44,10 @@ export default function Home() {
   // New state for multi-page documents
   const [pages, setPages] = useState<PageData[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(1);
+
+  // Image upload popup state
+  const [isUploadPopupOpen, setIsUploadPopupOpen] = useState<boolean>(false);
+  const [uploadedImages, setUploadedImages] = useState<ImageData[]>([]);
 
   // Left divider handlers
   const handleLeftMouseDown = useCallback(() => {
@@ -123,8 +128,9 @@ export default function Home() {
     console.log('Text extracted in main app:', text.substring(0, 100) + '...');
     setExtractedText(text);
 
-    // If we have images, convert them to pages
+    // Update uploaded images state
     if (images && images.length > 0) {
+      setUploadedImages(images);
       const newPages = convertImagesToPages(images);
       setPages(newPages);
 
@@ -144,6 +150,9 @@ export default function Home() {
       setPages([]);
       setCurrentPage(1);
     }
+
+    // Close the popup after successful extraction
+    setIsUploadPopupOpen(false);
   };
 
   // Handle page navigation for multi-page mode
@@ -165,6 +174,7 @@ export default function Home() {
     setExtractedText('');
     setPages([]);
     setCurrentPage(1);
+    setUploadedImages([]);
   };
 
   const handleFontSizeChange = (size: number) => {
@@ -177,6 +187,16 @@ export default function Home() {
 
   const handleHighlightToggle = (enabled: boolean) => {
     setIsHighlightEnabled(enabled);
+  };
+
+  // Handle upload images button click
+  const handleUploadImagesClick = () => {
+    setIsUploadPopupOpen(true);
+  };
+
+  // Handle popup close
+  const handlePopupClose = () => {
+    setIsUploadPopupOpen(false);
   };
 
   const rightWidth = 100 - leftWidth - middleWidth;
@@ -199,6 +219,7 @@ export default function Home() {
           onFontSizeChange={handleFontSizeChange}
           onHighlightToggle={handleHighlightToggle}
           onThemeChange={handleThemeChange}
+          onUploadImagesClick={handleUploadImagesClick}
           currentFontSize={fontSize}
           isHighlightEnabled={isHighlightEnabled}
           currentTheme={theme}
@@ -212,14 +233,13 @@ export default function Home() {
         onMouseDown={handleLeftMouseDown}
       />
 
-      {/* Middle Panel - Document Display & Upload */}
+      {/* Middle Panel - Document Display */}
       <div style={{ width: `${middleWidth}%` }}>
         <MiddlePanel
           extractedText={extractedText}
           fontSize={fontSize}
           theme={theme}
           isHighlightEnabled={isHighlightEnabled}
-          onTextExtracted={handleTextExtracted}
           onClearText={handleClearText}
           pages={pages}
           currentPage={currentPage}
@@ -242,6 +262,14 @@ export default function Home() {
           totalPages={pages.length > 0 ? pages.length : undefined}
         />
       </div>
+
+      {/* Image Upload Popup */}
+      <ImageUploadPopup
+        isOpen={isUploadPopupOpen}
+        onClose={handlePopupClose}
+        onTextExtracted={handleTextExtracted}
+        existingImages={uploadedImages}
+      />
     </div>
   );
 }

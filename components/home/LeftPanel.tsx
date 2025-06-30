@@ -4,6 +4,7 @@ interface LeftPanelProps {
   onFontSizeChange: (size: number) => void;
   onHighlightToggle: (enabled: boolean) => void;
   onThemeChange: (theme: string) => void;
+  onUploadImagesClick: () => void;
   currentFontSize: number;
   isHighlightEnabled: boolean;
   currentTheme: string;
@@ -13,6 +14,7 @@ export default function LeftPanel({
   onFontSizeChange,
   onHighlightToggle,
   onThemeChange,
+  onUploadImagesClick,
   currentFontSize,
   isHighlightEnabled,
   currentTheme,
@@ -55,6 +57,25 @@ export default function LeftPanel({
       {/* Header */}
       <div className='p-4 border-b' style={{ borderColor: '#2f2d2a' }}>
         <h2 className='text-lg font-semibold'>Controls</h2>
+      </div>
+
+      {/* Upload Images Section */}
+      <div className='p-4 border-b' style={{ borderColor: '#2f2d2a' }}>
+        <h3 className='text-sm font-medium mb-3' style={{ color: '#8975EA' }}>
+          Upload
+        </h3>
+
+        <button
+          onClick={onUploadImagesClick}
+          className='w-full flex items-center gap-3 p-3 rounded text-sm transition-colors hover:bg-opacity-80'
+          style={{
+            backgroundColor: '#8975EA',
+            color: '#ffffff',
+          }}
+        >
+          <span className='text-lg'>📷</span>
+          <span>Upload Images</span>
+        </button>
       </div>
 
       {/* Font Size Section */}
@@ -160,7 +181,7 @@ export default function LeftPanel({
       </div>
 
       {/* Reading Tools Section */}
-      <div className='p-4 border-b' style={{ borderColor: '#2f2d2a' }}>
+      <div className='p-4'>
         <h3 className='text-sm font-medium mb-3' style={{ color: '#8975EA' }}>
           Reading Tools
         </h3>
@@ -196,65 +217,6 @@ export default function LeftPanel({
                 }`}
               />
             </div>
-          </button>
-
-          {/* Focus Mode */}
-          <button
-            className='w-full flex items-center justify-between p-3 rounded text-sm text-gray-400 hover:text-gray-200 transition-colors'
-            style={{
-              backgroundColor: 'transparent',
-              border: '1px solid #3a3836',
-            }}
-          >
-            <div className='flex items-center gap-3'>
-              <span className='text-lg'>🔍</span>
-              <span>Focus Mode</span>
-            </div>
-          </button>
-
-          {/* Reading Guide */}
-          <button
-            className='w-full flex items-center justify-between p-3 rounded text-sm text-gray-400 hover:text-gray-200 transition-colors'
-            style={{
-              backgroundColor: 'transparent',
-              border: '1px solid #3a3836',
-            }}
-          >
-            <div className='flex items-center gap-3'>
-              <span className='text-lg'>📏</span>
-              <span>Reading Guide</span>
-            </div>
-          </button>
-        </div>
-      </div>
-
-      {/* Export Section */}
-      <div className='p-4'>
-        <h3 className='text-sm font-medium mb-3' style={{ color: '#8975EA' }}>
-          Export
-        </h3>
-
-        <div className='space-y-2'>
-          <button
-            className='w-full flex items-center gap-3 p-3 rounded text-sm text-gray-400 hover:text-gray-200 transition-colors'
-            style={{
-              backgroundColor: 'transparent',
-              border: '1px solid #3a3836',
-            }}
-          >
-            <span className='text-lg'>📄</span>
-            <span>Export as PDF</span>
-          </button>
-
-          <button
-            className='w-full flex items-center gap-3 p-3 rounded text-sm text-gray-400 hover:text-gray-200 transition-colors'
-            style={{
-              backgroundColor: 'transparent',
-              border: '1px solid #3a3836',
-            }}
-          >
-            <span className='text-lg'>📋</span>
-            <span>Copy to Clipboard</span>
           </button>
         </div>
       </div>

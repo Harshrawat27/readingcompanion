@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rhitik Kumar - Software Developer</title>
+    <style>
+      /* CSS Reset */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      }
+
+      :root {
+        --primary: #2563eb;
+        --dark: #1e293b;
+        --light: #f8fafc;
+        --secondary: #64748b;
+        --accent: #3b82f6;
+        --success: #10b981;
+      }
+
+      body {
+        background-color: var(--light);
+        color: var(--dark);
+        line-height: 1.6;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 20px;
+      }
+
+      header {
+        background-color: var(--primary);
+        color: white;
+        padding: 30px 0;
+        position: relative;
+        overflow: hidden;
+      }
+
+      header .container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: relative;
+        z-index: 2;
+      }
+
+      header::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image: radial-gradient(
+          circle at 10% 10%,
+          rgba(0, 0, 0, 0.1) 0%,
+          rgba(0, 0, 0, 0.2) 100%
+        );
+      }
+
+      .header-content {
+        width: 70%;
+      }
+
+      h1 {
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+      }
+
+      .subtitle {
+        font-size: 1.2rem;
+        margin-bottom: 15px;
+        color: rgba(255, 255, 255, 0.9);
+      }
+
+      .contact-info {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        margin-top: 20px;
+      }
+
+      .contact-info a {
+        color: white;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        transition: all 0.3s ease;
+      }
+
+      .contact-info a:hover {
+        color: rgba(255, 255, 255, 0.8);
+        transform: translateY(-2px);
+      }
+
+      nav {
+        background-color: white;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+      }
+
+      nav ul {
+        display: flex;
+        list-style: none;
+        justify-content: center;
+      }
+
+      nav li {
+        padding: 15px 0;
+      }
+
+      nav a {
+        text-decoration: none;
+        color: var(--dark);
+        font-weight: 500;
+        padding: 15px 20px;
+        transition: all 0.3s ease;
+      }
+
+      nav a:hover,
+      nav a.active {
+        color: var(--primary);
+        background-color: rgba(37, 99, 235, 0.1);
+      }
+
+      section {
+        padding: 60px 0;
+      }
+
+      section:nth-child(even) {
+        background-color: #f1f5f9;
+      }
+
+      .section-title {
+        text-align: center;
+        margin-bottom: 40px;
+        color: var(--dark);
+        position: relative;
+        padding-bottom: 15px;
+      }
+
+      .section-title::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 80px;
+        height: 3px;
+        background-color: var(--primary);
+      }
+
+      .education-item,
+      .experience-item,
+      .project-item {
+        margin-bottom: 30px;
+        padding: 25px;
+        background-color: white;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+
+      .education-item:hover,
+      .experience-item:hover,
+      .project-item:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+      }
+
+      .education-header,
+      .experience-header,
+      .project-header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 15px;
+      }
+
+      .institution,
+      .company,
+      .project-title {
+        font-weight: 600;
+        font-size: 1.1rem;
+        color: var(--primary);
+      }
+
+      .degree,
+      .job-title {
+        font-weight: 500;
+        margin-top: 5px;
+      }
+
+      .date {
+        color: var(--secondary);
+        font-style: italic;
+      }
+
+      .description {
+        margin-top: 10px;
+        color: var(--secondary);
+      }
+
+      .skills-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 40px;
+        justify-content: center;
+      }
+
+      .skill-category {
+        flex: 1;
+        min-width: 200px;
+        max-width: 300px;
+      }
+
+      .skill-category h3 {
+        margin-bottom: 15px;
+        color: var(--primary);
+        text-align: center;
+      }
+
+      .skills-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .skill-tag {
+        background-color: var(--primary);
+        color: white;
+        padding: 8px 15px;
+        border-radius: 30px;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+      }
+
+      .skill-tag:hover {
+        background-color: var(--accent);
+        transform: scale(1.05);
+      }
+
+      .achievements-list {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+
+      .achievement-item {
+        background-color: white;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        border-left: 4px solid var(--success);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        transition: transform 0.3s ease;
+      }
+
+      .achievement-item:hover {
+        transform: translateX(5px);
+      }
+
+      .projects-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 30px;
+      }
+
+      .project-item {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .project-content {
+        flex-grow: 1;
+      }
+
+      .project-tech {
+        margin-top: 15px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .tech-tag {
+        background-color: rgba(37, 99, 235, 0.1);
+        color: var(--primary);
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+      }
+
+      footer {
+        background-color: var(--dark);
+        color: white;
+        padding: 30px 0;
+        text-align: center;
+      }
+
+      .footer-content {
+        max-width: 600px;
+        margin: 0 auto;
+      }
+
+      .social-links {
+        margin-top: 20px;
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+      }
+
+      .social-links a {
+        color: white;
+        font-size: 1.5rem;
+        transition: all 0.3s ease;
+      }
+
+      .social-links a:hover {
+        color: var(--primary);
+        transform: translateY(-3px);
+      }
+
+      .back-to-top {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        background-color: var(--primary);
+        color: white;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 1.2rem;
+        cursor: pointer;
+        opacity: 0;
+        transition: all 0.3s ease;
+        pointer-events: none;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+      }
+
+      .back-to-top.visible {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .back-to-top:hover {
+        background-color: var(--accent);
+        transform: translateY(-5px);
+      }
+
+      /* Responsive Design */
+      @media (max-width: 768px) {
+        h1 {
+          font-size: 2rem;
+        }
+
+        .header-content {
+          width: 100%;
+        }
+
+        nav ul {
+          flex-direction: column;
+          align-items: center;
+        }
+
+        .projects-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .education-header,
+        .experience-header,
+        .project-header {
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .contact-info {
+          flex-direction: column;
+          gap: 10px;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <header id="home">
+      <div class="container">
+        <div class="header-content">
+          <h1>Rhitik Kumar</h1>
+          <p class="subtitle">Junior Software Developer</p>
+          <div class="contact-info">
+            <a href="mailto:rhitik40.kr@gmail.com">
+              <i class="fas fa-envelope"></i> rhitik40.kr@gmail.com
+            </a>
+            <a href="tel:+919318369648">
+              <i class="fas fa-phone"></i> +91-9318369648
+            </a>
+            <a href="https://www.linkedin.com/in/rhitik40kr/" target="_blank">
+              <i class="fab fa-linkedin"></i> linkedin.com/in/rhitik40kr/
+            </a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <nav id="navbar">
+      <ul>
+        <li><a href="#home" class="active">Home</a></li>
+        <li><a href="#experience">Experience</a></li>
+        <li><a href="#education">Education</a></li>
+        <li><a href="#projects">Projects</a></li>
+        <li><a href="#skills">Skills</a></li>
+        <li><a href="#achievements">Achievements</a></li>
+      </ul>
+    </nav>
+
+    <section id="experience">
+      <div class="container">
+        <h2 class="section-title">Professional Experience</h2>
+
+        <div class="experience-item">
+          <div class="experience-header">
+            <div>
+              <div class="company">Begapt Tech Solutions Pvt Ltd</div>
+              <div class="job-title">Junior Software Developer</div>
+            </div>
+            <div class="date">Oct 2023 - Dec 2024</div>
+          </div>
+          <ul class="description">
+            <li>
+              Developed a full-stack web application for Spark Minda to track
+              production, reports, and maintenance alerts, integrating API
+              Development for seamless data flow and boosting efficiency by 30%
+              after thorough testing and deployment.
+            </li>
+            <li>
+              Developed and tested a QtPy-based serial part feeder product,
+              enabling accurate part quantity display and streamlining
+              production.
+            </li>
+            <li>
+              Solely engineered a scalable reporting product, enabling dynamic
+              report generation for various clients via query-driven automation,
+              eliminating redundant development efforts.
+            </li>
+            <li>
+              Tech Stack - Spring Boot, Java, Python, QtPy, MySQL, JavaScript,
+              jQuery, Bootstrap, Chart.js.
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="education">
+      <div class="container">
+        <h2 class="section-title">Education</h2>
+
+        <div class="education-item">
+          <div class="education-header">
+            <div>
+              <div class="institution">
+                Jagannath Institute of Management Sciences, Vasant Kunj, Delhi
+              </div>
+              <div class="degree">Bachelor of Computer Applications</div>
+            </div>
+            <div class="date">2020 - 2023</div>
+          </div>
+          <p class="description">Computer Science | 9 CGPA</p>
+        </div>
+
+        <div class="education-item">
+          <div class="education-header">
+            <div>
+              <div class="institution">
+                Shyama Prasad Vidyalaya, Lodhi Estate, Delhi
+              </div>
+              <div class="degree">Senior School (12th)</div>
+            </div>
+            <div class="date">Passed: 2020</div>
+          </div>
+          <p class="description">PCMB - 7.9 CGPA (CBSE)</p>
+        </div>
+
+        <div class="education-item">
+          <div class="education-header">
+            <div>
+              <div class="institution">Tinu Public School, Delhi</div>
+              <div class="degree">High School (10th)</div>
+            </div>
+            <div class="date">Passed: 2017</div>
+          </div>
+          <p class="description">9.2 CGPA (CBSE)</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="projects">
+      <div class="container">
+        <h2 class="section-title">Projects</h2>
+
+        <div class="projects-grid">
+          <div class="project-item">
+            <div class="project-header">
+              <div class="project-title">MUZIC (Android App)</div>
+              <div class="date">Aug 2023 - Oct 2023</div>
+            </div>
+            <div class="project-content">
+              <p class="description">
+                Developed a music player app in Java that fetches music from
+                local storage using the Media Store API. Used RecyclerView for
+                efficient UI display and integrated Lottie animations for a
+                dynamic user experience.
+              </p>
+              <div class="project-tech">
+                <span class="tech-tag">Java</span>
+                <span class="tech-tag">Android</span>
+                <span class="tech-tag">Media Store API</span>
+                <span class="tech-tag">RecyclerView</span>
+                <span class="tech-tag">Lottie</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="project-item">
+            <div class="project-header">
+              <div class="project-title">TRAVEL KARO (Website)</div>
+              <div class="date">Dec 2020 - Jan 2021</div>
+            </div>
+            <div class="project-content">
+              <p class="description">
+                Built a travel booking platform with HTML, CSS, JavaScript, and
+                Bootstrap. Integrated Google Maps API for location-based
+                services and implemented form validation for user input
+                accuracy.
+              </p>
+              <div class="project-tech">
+                <span class="tech-tag">HTML</span>
+                <span class="tech-tag">CSS</span>
+                <span class="tech-tag">JavaScript</span>
+                <span class="tech-tag">Bootstrap</span>
+                <span class="tech-tag">Google Maps API</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="project-item">
+            <div class="project-header">
+              <div class="project-title">Practice Projects</div>
+            </div>
+            <div class="project-content">
+              <p class="description">
+                Developed various practice projects to enhance coding skills and
+                explore new technologies:
+              </p>
+              <ul class="description">
+                <li>To-Do App</li>
+                <li>Weathery Web Extension</li>
+                <li>Trivia App</li>
+              </ul>
+              <p class="description">
+                These projects showcase JavaScript and API integration skills.
+              </p>
+              <div class="project-tech">
+                <span class="tech-tag">JavaScript</span>
+                <span class="tech-tag">APIs</span>
+                <span class="tech-tag">HTML/CSS</span>
+                <span class="tech-tag">Web Development</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="skills">
+      <div class="container">
+        <h2 class="section-title">Skills</h2>
+
+        <div class="skills-container">
+          <div class="skill-category">
+            <h3>Programming</h3>
+            <div class="skills-list">
+              <div class="skill-tag">Java</div>
+              <div class="skill-tag">JavaScript</div>
+              <div class="skill-tag">Python</div>
+            </div>
+          </div>
+
+          <div class="skill-category">
+            <h3>Front End</h3>
+            <div class="skills-list">
+              <div class="skill-tag">HTML</div>
+              <div class="skill-tag">CSS</div>
+              <div class="skill-tag">jQuery</div>
+              <div class="skill-tag">Ajax</div>
+              <div class="skill-tag">Bootstrap</div>
+            </div>
+          </div>
+
+          <div class="skill-category">
+            <h3>Back End & Data Tools</h3>
+            <div class="skills-list">
+              <div class="skill-tag">MySQL</div>
+              <div class="skill-tag">SQLite</div>
+              <div class="skill-tag">RESTful APIs</div>
+            </div>
+          </div>
+
+          <div class="skill-category">
+            <h3>Frameworks</h3>
+            <div class="skills-list">
+              <div class="skill-tag">Spring Boot</div>
+              <div class="skill-tag">Flask</div>
+              <div class="skill-tag">QtPy</div>
+            </div>
+          </div>
+
+          <div class="skill-category">
+            <h3>Soft Skills</h3>
+            <div class="skills-list">
+              <div class="skill-tag">Collaborative</div>
+              <div class="skill-tag">Adaptive</div>
+              <div class="skill-tag">Problem Solving</div>
+              <div class="skill-tag">Communication</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="achievements">
+      <div class="container">
+        <h2 class="section-title">Achievements & Certifications</h2>
+
+        <div class="achievements-list">
+          <div class="achievement-item">
+            <p>
+              Solved 300+ Data Structure and Algorithms problems on Leetcode.
+            </p>
+          </div>
+
+          <div class="achievement-item">
+            <p>
+              1st Place, College-Level Web Designing Competition (50+
+              participants)
+            </p>
+          </div>
+
+          <div class="achievement-item">
+            <p>
+              2nd Place, Inter-College IT Quiz Competition (250+ participants)
+            </p>
+          </div>
+
+          <div class="achievement-item">
+            <p>Version Control by Meta (Certificate)</p>
+          </div>
+
+          <div class="achievement-item">
+            <p>
+              The Comprehensive Android App Development Masterclass
+              (Certificate)
+            </p>
+          </div>
+
+          <div class="achievement-item">
+            <p>DOEACC 'O' LEVEL Certified (Certificate)</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div class="container">
+        <div class="footer-content">
+          <p>© 2025 Rhitik Kumar. All rights reserved.</p>
+          <p>
+            Junior Software Developer specializing in full-stack development
+            with expertise in Java, JavaScript, and Python.
+          </p>
+
+          <div class="social-links">
+            <a href="mailto:rhitik40.kr@gmail.com"
+              ><i class="fas fa-envelope"></i
+            ></a>
+            <a href="https://www.linkedin.com/in/rhitik40kr/" target="_blank"
+              ><i class="fab fa-linkedin"></i
+            ></a>
+            <a href="tel:+919318369648"><i class="fas fa-phone"></i></a>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <div class="back-to-top" id="backToTop">
+      <i class="fas fa-arrow-up"></i>
+    </div>
+
+    <!-- Font Awesome for icons -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+
+    <script>
+      // Smooth scrolling for navigation links
+      document.querySelectorAll('nav a').forEach((anchor) => {
+        anchor.addEventListener('click', function (e) {
+          e.preventDefault();
+
+          const targetId = this.getAttribute('href');
+          const targetElement = document.querySelector(targetId);
+
+          window.scrollTo({
+            top: targetElement.offsetTop - 60,
+            behavior: 'smooth',
+          });
+
+          // Update active class
+          document
+            .querySelectorAll('nav a')
+            .forEach((a) => a.classList.remove('active'));
+          this.classList.add('active');
+        });
+      });
+
+      // Active navigation based on scroll position
+      window.addEventListener('scroll', function () {
+        const backToTop = document.getElementById('backToTop');
+
+        // Show back to top button when scrolled down
+        if (window.scrollY > 300) {
+          backToTop.classList.add('visible');
+        } else {
+          backToTop.classList.remove('visible');
+        }
+
+        // Update active navigation
+        const scrollPosition = window.scrollY;
+
+        document.querySelectorAll('section').forEach((section) => {
+          const sectionTop = section.offsetTop - 100;
+          const sectionHeight = section.offsetHeight;
+          const sectionId = section.getAttribute('id');
+
+          if (
+            scrollPosition >= sectionTop &&
+            scrollPosition < sectionTop + sectionHeight
+          ) {
+            document
+              .querySelectorAll('nav a')
+              .forEach((a) => a.classList.remove('active'));
+            document
+              .querySelector(`nav a[href="#${sectionId}"]`)
+              .classList.add('active');
+          }
+        });
+      });
+
+      // Back to top functionality
+      document
+        .getElementById('backToTop')
+        .addEventListener('click', function () {
+          window.scrollTo({
+            top: 0,
+            behavior: 'smooth',
+          });
+        });
+
+      // Simple animation for skill tags
+      document.querySelectorAll('.skill-tag').forEach((tag) => {
+        tag.addEventListener('mouseover', function () {
+          this.style.transform = 'scale(1.05)';
+        });
+
+        tag.addEventListener('mouseout', function () {
+          this.style.transform = 'scale(1)';
+        });
+      });
+    </script>
+  </body>
+</html>
