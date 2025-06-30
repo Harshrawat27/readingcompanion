@@ -121,30 +121,74 @@ export default function Home() {
     }));
   };
 
+  // Parse combined text to extract individual page texts
+  const parseMultiPageText = (combinedText: string): string[] => {
+    if (!combinedText.includes('--- IMAGE')) {
+      return [combinedText]; // Single page
+    }
+
+    // Split by the image markers
+    const sections = combinedText.split(/\n\n--- IMAGE \d+ ---\n\n/);
+
+    // Remove empty first section if it exists
+    if (sections[0].trim() === '') {
+      sections.shift();
+    }
+
+    return sections
+      .map((section) => section.trim())
+      .filter((section) => section.length > 0);
+  };
+
   // Application event handlers
   const handleTextExtracted = (text: string, images?: ImageData[]) => {
     console.log('Text extracted in main app:', text.substring(0, 100) + '...');
-    setExtractedText(text);
 
     // Update uploaded images state
     if (images && images.length > 0) {
       setUploadedImages(images);
-      const newPages = convertImagesToPages(images);
-      setPages(newPages);
 
-      // If text contains multi-image markers, we're in multi-image mode
-      if (text.includes('--- IMAGE')) {
-        // Set current page to show the first image with extracted text
-        const firstPageWithText = newPages.find((p) => p.extractedText);
-        if (firstPageWithText) {
-          setCurrentPage(firstPageWithText.pageNumber);
-        }
+      // Check if we have multiple images with combined text
+      if (text.includes('--- IMAGE') && images.length > 1) {
+        // Multi-page mode: parse the combined text into individual pages
+        const pageTexts = parseMultiPageText(text);
+
+        const newPages = images.map((image, index) => ({
+          pageNumber: index + 1,
+          imageData: image.preview,
+          extractedText: pageTexts[index] || image.extractedText || '',
+          width: 800,
+          height: 600,
+        }));
+
+        setPages(newPages);
+        setCurrentPage(1); // Start with first page
+
+        // Set the extracted text to the first page's text
+        setExtractedText(pageTexts[0] || '');
       } else {
-        // Single image mode - show first page
-        setCurrentPage(1);
+        // Single image or individual processing
+        const newPages = convertImagesToPages(images);
+        setPages(newPages);
+
+        if (images.length === 1) {
+          setCurrentPage(1);
+          setExtractedText(images[0].extractedText || text);
+        } else {
+          // Multiple individual extractions - show first page with text
+          const firstPageWithText = newPages.find((p) => p.extractedText);
+          if (firstPageWithText) {
+            setCurrentPage(firstPageWithText.pageNumber);
+            setExtractedText(firstPageWithText.extractedText || '');
+          } else {
+            setCurrentPage(1);
+            setExtractedText('');
+          }
+        }
       }
     } else {
-      // Clear pages if no images
+      // No images - single text extraction
+      setExtractedText(text);
       setPages([]);
       setCurrentPage(1);
     }
@@ -186,6 +230,13 @@ export default function Home() {
 
   const handleImagesUploaded = (images: ImageData[]) => {
     setUploadedImages(images);
+
+    // If images are uploaded but not yet processed, create pages without text
+    if (images.length > 0) {
+      const newPages = convertImagesToPages(images);
+      setPages(newPages);
+      setCurrentPage(1);
+    }
   };
 
   const rightWidth = 100 - leftWidth - middleWidth;
