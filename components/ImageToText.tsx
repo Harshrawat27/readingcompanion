@@ -113,33 +113,32 @@ export default function ImageToText({
         },
         body: JSON.stringify({
           image: image.preview,
+          prompt: `Analyze this image and extract ALL text while preserving the EXACT original formatting and structure. 
 
-          prompt: `Analyze this image and extract ALL text while preserving the EXACT original formatting and structure. Pay close attention to the beginning of each image—some may start mid-sentence or include file names or headers. Do not assume any content is a heading unless it's clearly formatted as one. Maintain natural text flow across images that are part of the same document.
+CRITICAL REQUIREMENTS:
+1. Identify the text hierarchy exactly as shown (main titles, subtitles, body text)
+2. Use appropriate markdown formatting:
+   - # for main headings/titles
+   - ## for section headings  
+   - ### for subsection headings
+   - Regular text for paragraphs
+   - - for bullet points
+   - 1. 2. 3. for numbered lists
+   - **text** for bold text
+   - *text* for italic text
+3. Handle mathematical formulas and equations:
+   - For inline math: $formula$
+   - For display math (centered): $formula$
+   - Preserve all mathematical notation exactly as shown
+   - Keep subscripts, superscripts, fractions, Greek letters, etc.
+4. Maintain original spacing and line breaks
+5. Preserve the reading order and layout structure
+6. Keep tables in proper markdown table format if present
+7. For images/diagrams, use: [Image: brief description]
+8. Maintain any indentation or grouping
+9. Do NOT wrap content in code blocks unless it's actual code
 
-          CRITICAL REQUIREMENTS:
-          1. Identify the text hierarchy exactly as shown (main titles, subtitles, body text)
-          2. Use appropriate markdown formatting:
-             - # for main headings/titles
-             - ## for section headings
-             - ### for subsection headings
-             - Regular text for paragraphs
-             - - for bullet points
-             - 1. 2. 3. for numbered lists
-             - **text** for bold text
-             - *text* for italic text
-          3. Handle mathematical formulas and equations:
-             - For inline math: $formula$
-             - For display math (centered): $formula$
-             - Preserve all mathematical notation exactly as shown
-             - Keep subscripts, superscripts, fractions, Greek letters, etc.
-          4. Maintain original spacing and line breaks
-          5. Preserve the reading order and layout structure
-          6. Keep tables in proper markdown table format if present
-          7. For images/diagrams, use: [Image: brief description]
-          8. Maintain any indentation or grouping
-          9. Do NOT wrap content in code blocks unless it's actual code
-
-          Extract EVERYTHING visible and return ONLY the properly formatted markdown text with no additional commentary. Pay special attention to mathematical formulas and scientific notation.`,
+Extract EVERYTHING visible and return ONLY the properly formatted markdown text with no additional commentary. Pay special attention to mathematical formulas and scientific notation.`,
         }),
       });
 
