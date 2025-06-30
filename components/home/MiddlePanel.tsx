@@ -424,25 +424,6 @@ export default function MiddlePanel({
                     ? 'Click "Extract text" in the right panel to process this page'
                     : 'The extracted text will appear here with your formatting preferences'}
                 </p>
-
-                {/* Quick tips */}
-                <div
-                  className='mt-6 p-4 rounded-lg max-w-md mx-auto'
-                  style={{ backgroundColor: themeStyles.borderColor }}
-                >
-                  <h3
-                    className='text-sm font-medium mb-2'
-                    style={{ color: '#8975EA' }}
-                  >
-                    Pro Tips:
-                  </h3>
-                  <ul className='text-xs text-gray-400 space-y-1 text-left'>
-                    <li>• Use the left panel to adjust font size and theme</li>
-                    <li>• Enable highlighting to emphasize bold text</li>
-                    <li>• Navigate between pages using arrow buttons</li>
-                    <li>• Export your text in multiple formats</li>
-                  </ul>
-                </div>
               </div>
             </div>
           )}

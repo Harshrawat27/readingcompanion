@@ -5,7 +5,6 @@ import { useState, useRef, useCallback } from 'react';
 import LeftPanel from '../components/home/LeftPanel';
 import MiddlePanel from '../components/home/MiddlePanel';
 import ChatPanel from '../components/home/ChatPanel';
-import ImageUploadPopup from '../components/ImageUploadPopup';
 
 // Add ImageData interface for type safety
 interface ImageData {
@@ -45,8 +44,7 @@ export default function Home() {
   const [pages, setPages] = useState<PageData[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(1);
 
-  // Image upload popup state
-  const [isUploadPopupOpen, setIsUploadPopupOpen] = useState<boolean>(false);
+  // Image upload state
   const [uploadedImages, setUploadedImages] = useState<ImageData[]>([]);
 
   // Left divider handlers
@@ -150,9 +148,6 @@ export default function Home() {
       setPages([]);
       setCurrentPage(1);
     }
-
-    // Close the popup after successful extraction
-    setIsUploadPopupOpen(false);
   };
 
   // Handle page navigation for multi-page mode
@@ -189,14 +184,8 @@ export default function Home() {
     setIsHighlightEnabled(enabled);
   };
 
-  // Handle upload images button click
-  const handleUploadImagesClick = () => {
-    setIsUploadPopupOpen(true);
-  };
-
-  // Handle popup close
-  const handlePopupClose = () => {
-    setIsUploadPopupOpen(false);
+  const handleImagesUploaded = (images: ImageData[]) => {
+    setUploadedImages(images);
   };
 
   const rightWidth = 100 - leftWidth - middleWidth;
@@ -213,13 +202,14 @@ export default function Home() {
       className='flex h-screen w-full'
       style={{ fontFamily: 'var(--font-geist-sans)' }}
     >
-      {/* Left Panel - Controls & Tools */}
+      {/* Left Panel - Controls & Image Upload */}
       <div style={{ width: `${leftWidth}%` }}>
         <LeftPanel
           onFontSizeChange={handleFontSizeChange}
           onHighlightToggle={handleHighlightToggle}
           onThemeChange={handleThemeChange}
-          onUploadImagesClick={handleUploadImagesClick}
+          onTextExtracted={handleTextExtracted}
+          onImagesUploaded={handleImagesUploaded}
           currentFontSize={fontSize}
           isHighlightEnabled={isHighlightEnabled}
           currentTheme={theme}
@@ -262,14 +252,6 @@ export default function Home() {
           totalPages={pages.length > 0 ? pages.length : undefined}
         />
       </div>
-
-      {/* Image Upload Popup */}
-      <ImageUploadPopup
-        isOpen={isUploadPopupOpen}
-        onClose={handlePopupClose}
-        onTextExtracted={handleTextExtracted}
-        existingImages={uploadedImages}
-      />
     </div>
   );
 }

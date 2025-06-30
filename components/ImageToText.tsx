@@ -686,23 +686,6 @@ Extract EVERYTHING visible and return ONLY the properly formatted markdown text 
           <div className='text-sm'>{error}</div>
         </div>
       )}
-
-      {/* Instructions */}
-      <div className='p-4 rounded-lg' style={{ backgroundColor: '#2a2826' }}>
-        <h3 className='text-sm font-medium mb-2' style={{ color: '#8975EA' }}>
-          How it works:
-        </h3>
-        <ul className='text-xs text-gray-400 space-y-1'>
-          <li>• Select up to 20 images at once</li>
-          <li>• Extract text from individual images or all at once</li>
-          <li>
-            • Batch processing: {BATCH_SIZE} images processed simultaneously
-          </li>
-          <li>• Real-time progress tracking with visual indicators</li>
-          <li>• Automatic retry for failed requests</li>
-          <li>• Text appears in the main panel with formatting</li>
-        </ul>
-      </div>
     </div>
   );
 }

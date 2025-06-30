@@ -1,10 +1,23 @@
 'use client';
 
+import ImageToText from '../ImageToText';
+
+interface ImageData {
+  id: string;
+  file: File;
+  preview: string;
+  extractedText?: string;
+  isProcessing?: boolean;
+  hasError?: boolean;
+  errorMessage?: string;
+}
+
 interface LeftPanelProps {
   onFontSizeChange: (size: number) => void;
   onHighlightToggle: (enabled: boolean) => void;
   onThemeChange: (theme: string) => void;
-  onUploadImagesClick: () => void;
+  onTextExtracted: (text: string) => void;
+  onImagesUploaded?: (images: ImageData[]) => void;
   currentFontSize: number;
   isHighlightEnabled: boolean;
   currentTheme: string;
@@ -14,7 +27,8 @@ export default function LeftPanel({
   onFontSizeChange,
   onHighlightToggle,
   onThemeChange,
-  onUploadImagesClick,
+  onTextExtracted,
+  onImagesUploaded,
   currentFontSize,
   isHighlightEnabled,
   currentTheme,
@@ -46,9 +60,22 @@ export default function LeftPanel({
     },
   ];
 
+  const handleTextExtracted = (text: string, images: ImageData[]) => {
+    onTextExtracted(text);
+    if (onImagesUploaded) {
+      onImagesUploaded(images);
+    }
+  };
+
+  const handleImagesUploaded = (images: ImageData[]) => {
+    if (onImagesUploaded) {
+      onImagesUploaded(images);
+    }
+  };
+
   return (
     <div
-      className='flex flex-col h-full overflow-auto'
+      className='flex flex-col h-full overflow-hidden'
       style={{
         backgroundColor: '#1F1E1D',
         color: '#ffffff',
@@ -57,25 +84,6 @@ export default function LeftPanel({
       {/* Header */}
       <div className='p-4 border-b' style={{ borderColor: '#2f2d2a' }}>
         <h2 className='text-lg font-semibold'>Controls</h2>
-      </div>
-
-      {/* Upload Images Section */}
-      <div className='p-4 border-b' style={{ borderColor: '#2f2d2a' }}>
-        <h3 className='text-sm font-medium mb-3' style={{ color: '#8975EA' }}>
-          Upload
-        </h3>
-
-        <button
-          onClick={onUploadImagesClick}
-          className='w-full flex items-center gap-3 p-3 rounded text-sm transition-colors hover:bg-opacity-80'
-          style={{
-            backgroundColor: '#8975EA',
-            color: '#ffffff',
-          }}
-        >
-          <span className='text-lg'>📷</span>
-          <span>Upload Images</span>
-        </button>
       </div>
 
       {/* Font Size Section */}
@@ -180,44 +188,24 @@ export default function LeftPanel({
         </div>
       </div>
 
-      {/* Reading Tools Section */}
-      <div className='p-4'>
-        <h3 className='text-sm font-medium mb-3' style={{ color: '#8975EA' }}>
-          Reading Tools
-        </h3>
+      {/* Image Upload Section - Takes remaining space */}
+      <div className='flex-1 overflow-hidden flex flex-col'>
+        {/* Section Header */}
+        <div className='p-4 border-b' style={{ borderColor: '#2f2d2a' }}>
+          <h3 className='text-sm font-medium' style={{ color: '#8975EA' }}>
+            Image Upload
+          </h3>
+          <p className='text-xs text-gray-400 mt-1'>
+            Upload images and extract text with AI
+          </p>
+        </div>
 
-        <div className='space-y-2'>
-          {/* Highlight Toggle */}
-          <button
-            onClick={() => onHighlightToggle(!isHighlightEnabled)}
-            className={`w-full flex items-center justify-between p-3 rounded text-sm transition-all duration-200 ${
-              isHighlightEnabled
-                ? 'text-white'
-                : 'text-gray-400 hover:text-gray-200'
-            }`}
-            style={{
-              backgroundColor: isHighlightEnabled ? '#2a2826' : 'transparent',
-              border: isHighlightEnabled
-                ? '1px solid #8975EA'
-                : '1px solid #3a3836',
-            }}
-          >
-            <div className='flex items-center gap-3'>
-              <span className='text-lg'>🎯</span>
-              <span>Highlighting</span>
-            </div>
-            <div
-              className={`w-10 h-5 rounded-full transition-colors duration-200 relative ${
-                isHighlightEnabled ? 'bg-green-500' : 'bg-gray-600'
-              }`}
-            >
-              <div
-                className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform duration-200 ${
-                  isHighlightEnabled ? 'translate-x-5' : 'translate-x-0.5'
-                }`}
-              />
-            </div>
-          </button>
+        {/* Content Area - Scrollable */}
+        <div className='flex-1 overflow-y-auto'>
+          <ImageToText
+            onTextExtracted={handleTextExtracted}
+            onImagesUploaded={handleImagesUploaded}
+          />
         </div>
       </div>
     </div>
