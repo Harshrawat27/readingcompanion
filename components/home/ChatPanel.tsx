@@ -148,7 +148,7 @@ export default function ChatPanel({
       {/* Messages Area - Only show if there are messages */}
       {messages.length > 0 && (
         <div
-          className='flex-1 overflow-y-auto px-6 py-4'
+          className='flex-1 overflow-y-auto px-6 py-4 pb-100'
           style={{
             paddingBottom: '120px', // Space for fixed input at bottom
           }}
