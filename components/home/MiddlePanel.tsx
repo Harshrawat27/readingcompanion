@@ -201,7 +201,7 @@ export default function MiddlePanel({
                     <img
                       src={page.imageData}
                       alt={`Page ${page.pageNumber}`}
-                      className='w-full h-16 object-cover rounded mb-1'
+                      className='w-full aspect-[210/297] object-cover rounded mb-1'
                     />
                   )}
                   <div className='text-xs text-center'>
