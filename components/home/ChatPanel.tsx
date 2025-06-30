@@ -8,6 +8,7 @@ interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  isStreaming?: boolean;
 }
 
 interface ChatPanelProps {
@@ -24,8 +25,13 @@ export default function ChatPanel({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
+    null
+  );
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -57,9 +63,73 @@ export default function ChatPanel({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Handle streaming response
+  const handleStreamingResponse = async (
+    response: Response,
+    assistantMessageId: string
+  ) => {
+    if (!response.body) {
+      throw new Error('No response body for streaming');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    try {
+      setIsStreaming(true);
+      setStreamingMessageId(assistantMessageId);
+
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              if (data.type === 'content') {
+                // Update the streaming message with new content
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, content: msg.content + data.content }
+                      : msg
+                  )
+                );
+              } else if (data.type === 'done') {
+                // Mark streaming as complete
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, isStreaming: false }
+                      : msg
+                  )
+                );
+                return; // Exit the function
+              } else if (data.type === 'error') {
+                throw new Error(data.error);
+              }
+            } catch (parseError) {
+              console.warn('Failed to parse streaming data:', parseError);
+            }
+          }
+        }
+      }
+    } finally {
+      setIsStreaming(false);
+      setStreamingMessageId(null);
+      reader.releaseLock();
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if (!input.trim() || isLoading || isStreaming) return;
 
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
@@ -68,9 +138,22 @@ export default function ChatPanel({
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    // Create assistant message placeholder for streaming
+    const assistantMessageId = `assistant-${Date.now()}`;
+    const assistantMessage: ChatMessage = {
+      id: assistantMessageId,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      isStreaming: true,
+    };
+
+    setMessages((prev) => [...prev, userMessage, assistantMessage]);
     setInput('');
     setIsLoading(true);
+
+    // Create abort controller for this request
+    abortControllerRef.current = new AbortController();
 
     try {
       // Prepare context for the AI
@@ -92,33 +175,63 @@ export default function ChatPanel({
           context,
           hasDocument: !!extractedText,
         }),
+        signal: abortControllerRef.current.signal,
       });
 
       if (!response.ok) {
-        throw new Error('Failed to get response');
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
-
-      const assistantMessage: ChatMessage = {
-        id: `assistant-${Date.now()}`,
-        role: 'assistant',
-        content: data.message,
-        timestamp: new Date(),
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
+      // Check if response is streaming
+      const contentType = response.headers.get('content-type');
+      if (contentType?.includes('text/event-stream')) {
+        await handleStreamingResponse(response, assistantMessageId);
+      } else {
+        // Fallback to non-streaming response
+        const data = await response.json();
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMessageId
+              ? { ...msg, content: data.message, isStreaming: false }
+              : msg
+          )
+        );
+      }
     } catch (error) {
       console.error('Chat error:', error);
-      const errorMessage: ChatMessage = {
-        id: `error-${Date.now()}`,
-        role: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.',
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+
+      // Handle aborted requests
+      if (error instanceof Error && error.name === 'AbortError') {
+        setMessages((prev) =>
+          prev.filter((msg) => msg.id !== assistantMessageId)
+        );
+        return;
+      }
+
+      // Update assistant message with error
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantMessageId
+            ? {
+                ...msg,
+                content: 'Sorry, I encountered an error. Please try again.',
+                isStreaming: false,
+              }
+            : msg
+        )
+      );
     } finally {
       setIsLoading(false);
+      setIsStreaming(false);
+      setStreamingMessageId(null);
+      abortControllerRef.current = null;
+    }
+  };
+
+  // Stop streaming
+  const stopStreaming = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
   };
 
@@ -130,7 +243,13 @@ export default function ChatPanel({
   };
 
   const clearChat = () => {
+    // Stop any ongoing streaming
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
     setMessages([]);
+    setIsStreaming(false);
+    setStreamingMessageId(null);
   };
 
   const formatTime = (date: Date) => {
@@ -148,64 +267,81 @@ export default function ChatPanel({
       {/* Messages Area - Only show if there are messages */}
       {messages.length > 0 && (
         <div
-          className='flex-1 overflow-y-auto px-6 py-4 pb-100'
+          className='flex-1 overflow-y-auto px-6 py-4'
           style={{
             paddingBottom: '120px', // Space for fixed input at bottom
           }}
         >
           {/* Chat Messages */}
-          <div className='max-w-4xl mx-auto space-y-6'>
+          <div className='max-w-4xl mx-auto space-y-6 pb-30'>
             {messages.map((message) => (
-              <div key={message.id} className='space-y-2'>
-                {/* Message Header */}
-                <div className='flex items-center gap-2 text-sm opacity-60'>
-                  <span className='font-medium'>
-                    {message.role === 'user' ? 'You' : 'Claude'}
-                  </span>
-                  <span className='text-xs'>
-                    {formatTime(message.timestamp)}
-                  </span>
-                </div>
+              <div
+                key={message.id}
+                // Conditionally apply classes to align messages
+                className={`flex ${
+                  message.role === 'user' ? 'justify-end' : 'justify-start'
+                }`}
+              >
+                <div className='max-w-lg'>
+                  {/* Message Header */}
+                  <div
+                    className={`flex items-center gap-2 text-sm opacity-60 ${
+                      message.role === 'user' ? 'justify-end' : 'justify-start'
+                    }`}
+                  >
+                    <span className='font-medium'>
+                      {message.role === 'user' ? 'You' : 'Readly'}
+                    </span>
+                    <span className='text-xs'>
+                      {formatTime(message.timestamp)}
+                    </span>
+                  </div>
 
-                {/* Message Content */}
-                <div
-                  className='text-base leading-relaxed whitespace-pre-wrap'
-                  style={{
-                    color: '#e5e5e5',
-                    lineHeight: '1.6',
-                  }}
-                >
-                  {message.content}
+                  {/* Message Content */}
+                  <div
+                    className='text-base leading-relaxed whitespace-pre-wrap p-4 rounded-lg'
+                    style={{
+                      // Conditional background and text color
+                      backgroundColor:
+                        message.role === 'user' ? '#000000' : 'transparent',
+                      color: '#e5e5e5',
+                      lineHeight: '1.6',
+                    }}
+                  >
+                    {message.content}
+                  </div>
                 </div>
               </div>
             ))}
 
             {/* Loading indicator */}
             {isLoading && (
-              <div className='space-y-2'>
-                <div className='flex items-center gap-2 text-sm opacity-60'>
-                  <span className='font-medium'>Claude</span>
-                </div>
-                <div className='flex items-center gap-2'>
-                  <div className='flex space-x-1'>
-                    <div
-                      className='w-2 h-2 rounded-full animate-pulse'
-                      style={{ backgroundColor: '#8975EA' }}
-                    ></div>
-                    <div
-                      className='w-2 h-2 rounded-full animate-pulse'
-                      style={{
-                        backgroundColor: '#8975EA',
-                        animationDelay: '0.2s',
-                      }}
-                    ></div>
-                    <div
-                      className='w-2 h-2 rounded-full animate-pulse'
-                      style={{
-                        backgroundColor: '#8975EA',
-                        animationDelay: '0.4s',
-                      }}
-                    ></div>
+              <div className='flex justify-start'>
+                <div className='space-y-2'>
+                  <div className='flex items-center gap-2 text-sm opacity-60'>
+                    <span className='font-medium'>Readly</span>
+                  </div>
+                  <div className='flex items-center gap-2'>
+                    <div className='flex space-x-1'>
+                      <div
+                        className='w-2 h-2 rounded-full animate-pulse'
+                        style={{ backgroundColor: '#8975EA' }}
+                      ></div>
+                      <div
+                        className='w-2 h-2 rounded-full animate-pulse'
+                        style={{
+                          backgroundColor: '#8975EA',
+                          animationDelay: '0.2s',
+                        }}
+                      ></div>
+                      <div
+                        className='w-2 h-2 rounded-full animate-pulse'
+                        style={{
+                          backgroundColor: '#8975EA',
+                          animationDelay: '0.4s',
+                        }}
+                      ></div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -281,7 +417,7 @@ export default function ChatPanel({
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder='Find problem of all your pdf...'
+                  placeholder='Ask about your document or any question...'
                   className='w-full resize-none bg-transparent placeholder-gray-500 focus:outline-none focus:ring-0'
                   style={{
                     color: '#e5e5e5',
@@ -363,6 +499,20 @@ export default function ChatPanel({
                     </svg>
                     <span className='text-sm text-gray-300'>Research</span>
                   </button>
+
+                  {/* Stop button when streaming */}
+                  {isStreaming && (
+                    <button
+                      type='button'
+                      onClick={stopStreaming}
+                      className='h-9 px-4 rounded-xl flex items-center gap-2 transition-colors hover:bg-red-600'
+                      style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)' }}
+                      title='Stop generation'
+                    >
+                      <div className='w-3 h-3 bg-red-400 rounded-sm'></div>
+                      <span className='text-sm text-red-400'>Stop</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Send Button */}
