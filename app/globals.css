@@ -11,6 +11,25 @@
   --text-secondary: #e5e7eb;
   --text-muted: #9ca3af;
   --text-subtle: #6b7280;
+
+  --primary: #8975ea;
+  --main-bg: #262624;
+  --sidebar-bg: #1f1e1d;
+  --border-light: #3a3836;
+  --border-medium: #2f2d2a;
+  --border-dark: #4a453f;
+  --text-primary: #ffffff;
+  --text-secondary: #e5e7eb;
+  --text-muted: #9ca3af;
+  --text-subtle: #6b7280;
+
+  /* Auth page specific colors */
+  --auth-bg: #0a0a0a;
+  --auth-card-bg: #1a1a1a;
+  --auth-border: #2a2a2a;
+  --auth-input-bg: #1e1e1e;
+  --auth-primary: #8975ea;
+  --auth-primary-hover: #7c68d9;
 }
 
 @theme inline {

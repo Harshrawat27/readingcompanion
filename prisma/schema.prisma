@@ -1,0 +1,146 @@
+// This tells Prisma how to generate the client
+generator client {
+  provider = "prisma-client-js"
+}
+
+// This tells Prisma we're using PostgreSQL (Neon)
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// USER MODEL - stores user information
+model User {
+  id        String   @id @default(cuid()) // Unique ID for each user
+  email     String   @unique              // Email must be unique
+  name      String?                       // Name is optional
+  image     String?                       // Profile picture URL
+  createdAt DateTime @default(now())      // When user was created
+  updatedAt DateTime @updatedAt           // When user was last updated
+
+  // RELATIONSHIPS
+  accounts  Account[]     // A user can have multiple OAuth accounts
+  sessions  Session[]     // A user can have multiple sessions
+  documents Document[]    // A user can have multiple documents
+  settings  UserSettings? // A user has one settings record (optional)
+
+  @@map("users") // Table name in database
+}
+
+// ACCOUNT MODEL - for OAuth providers (Google, GitHub)
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String  // "oauth" or "email"
+  provider          String  // "google", "github", etc.
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+// SESSION MODEL - tracks user login sessions
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  expiresAt    DateTime @map("expires_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// VERIFICATION MODEL - for email verification
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String   // Email address
+  value      String   // Verification code
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([identifier, value])
+  @@map("verifications")
+}
+
+// YOUR APP MODELS
+
+// DOCUMENT MODEL - represents PDFs or image collections
+model Document {
+  id         String      @id @default(cuid())
+  name       String                               // "My PDF Document"
+  type       DocumentType                         // PDF, IMAGE, MULTI_IMAGE
+  totalPages Int         @default(1)              // How many pages
+  fileSize   Int?                                 // File size in bytes
+  userId     String      @map("user_id")          // Who owns this document
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  // RELATIONSHIPS
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pages Page[] // A document has multiple pages
+
+  @@map("documents")
+}
+
+// PAGE MODEL - individual pages of a document
+model Page {
+  id              String   @id @default(cuid())
+  pageNumber      Int                              // 1, 2, 3, etc.
+  documentId      String   @map("document_id")     // Which document this belongs to
+  imageData       String?  @db.Text               // Base64 image (consider moving to file storage later)
+  extractedText   String?  @db.Text               // AI-extracted text
+  processingStatus ProcessingStatus @default(PENDING)
+  errorMessage    String?  @db.Text               // If processing failed
+  width           Int?                             // Image dimensions
+  height          Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // RELATIONSHIPS
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, pageNumber]) // Each page number must be unique within a document
+  @@map("pages")
+}
+
+// USER PREFERENCES MODEL - store user's app settings
+model UserSettings {
+  id               String  @id @default(cuid())
+  userId           String  @unique @map("user_id")
+  fontSize         Int     @default(16)
+  theme            String  @default("dark")
+  highlightEnabled Boolean @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+// ENUMS - predefined values
+
+enum DocumentType {
+  PDF
+  IMAGE
+  MULTI_IMAGE
+}
+
+enum ProcessingStatus {
+  PENDING    // Not processed yet
+  PROCESSING // Currently being processed
+  COMPLETED  // Successfully processed
+  FAILED     // Processing failed
+}
