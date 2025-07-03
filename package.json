@@ -10,7 +10,10 @@
     "postinstall": "cp node_modules/pdfjs-dist/build/pdf.min.mjs public/"
   },
   "dependencies": {
+    "@types/hast": "^3.0.4",
     "@types/katex": "^0.16.7",
+    "highlight.js": "^11.11.1",
+    "katex": "^0.16.22",
     "lucide-react": "^0.525.0",
     "next": "15.3.4",
     "openai": "^5.6.0",
@@ -18,7 +21,14 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-pdf": "^9.2.1",
-    "showdown": "^2.1.0"
+    "rehype-katex": "^6.0.3",
+    "rehype-stringify": "^9.0.4",
+    "remark": "^15.0.1",
+    "remark-gfm": "^3.0.1",
+    "remark-math": "^5.1.1",
+    "remark-parse": "^10.0.2",
+    "remark-rehype": "^10.1.0",
+    "unified": "^10.1.2"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -28,7 +38,6 @@
     "@types/pg": "^8.15.4",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/showdown": "^2.0.6",
     "better-auth": "^1.2.12",
     "eslint": "^9",
     "eslint-config-next": "15.3.4",
