@@ -113,32 +113,53 @@ export default function ImageToText({
         },
         body: JSON.stringify({
           image: image.preview,
-          prompt: `Analyze this image and extract ALL text while preserving the EXACT original formatting and structure. Pay close attention to the beginning of each image—some may start mid-sentence or include file names or headers. Do not assume any content is a heading unless it's clearly formatted as one. Maintain natural text flow across images that are part of the same document.
+          //           prompt: `Analyze this image and extract ALL text while preserving the EXACT original formatting and structure. Pay close attention to the beginning of each image—some may start mid-sentence or include file names or headers. Do not assume any content is a heading unless it's clearly formatted as one. Maintain natural text flow across images that are part of the same document.
 
-CRITICAL REQUIREMENTS:
-1. Identify the text hierarchy exactly as shown (main titles, subtitles, body text)
-2. Use appropriate markdown formatting:
-   - # for main headings/titles
-   - ## for section headings  
-   - ### for subsection headings
-   - Regular text for paragraphs
-   - - for bullet points
-   - 1. 2. 3. for numbered lists
-   - **text** for bold text
-   - *text* for italic text
-3. Handle mathematical formulas and equations:
-   - For inline math: $formula$
-   - For display math (centered): $formula$
-   - Preserve all mathematical notation exactly as shown
-   - Keep subscripts, superscripts, fractions, Greek letters, etc.
-4. Maintain original spacing and line breaks
-5. Preserve the reading order and layout structure
-6. Keep tables in proper markdown table format if present
-7. For images/diagrams, use: [Image: brief description]
-8. Maintain any indentation or grouping
-9. Do NOT wrap content in code blocks unless it's actual code, when something is starting from image or complex formula you are turning whole page into code block don't do this, when starting is complex watch carefully and only wrap code into code block.
+          // CRITICAL REQUIREMENTS:
+          // 1. Identify the text hierarchy exactly as shown (main titles, subtitles, body text)
+          // 2. Use appropriate markdown formatting:
+          //    - # for main headings/titles
+          //    - ## for section headings
+          //    - ### for subsection headings
+          //    - Regular text for paragraphs
+          //    - - for bullet points
+          //    - 1. 2. 3. for numbered lists
+          //    - **text** for bold text
+          //    - *text* for italic text
+          // 3. Handle mathematical formulas and equations:
+          //    - For inline math: $formula$
+          //    - For display math (centered): $formula$
+          //    - Preserve all mathematical notation exactly as shown
+          //    - Keep subscripts, superscripts, fractions, Greek letters, etc.
+          // 4. Maintain original spacing and line breaks
+          // 5. Preserve the reading order and layout structure
+          // 6. Keep tables in proper markdown table format if present
+          // 7. For images/diagrams, use: [Image: brief description]
+          // 8. Maintain any indentation or grouping
+          // 9. Do NOT wrap content in code blocks unless it's actual code, when something is starting from image or complex formula you are turning whole page into code block don't do this, when starting is complex watch carefully and only wrap code into code block.
 
-Extract EVERYTHING visible and return ONLY the properly formatted markdown text with no additional commentary. Pay special attention to mathematical formulas and scientific notation.`,
+          // Extract EVERYTHING visible and return ONLY the properly formatted markdown text with no additional commentary. Pay special attention to mathematical formulas and scientific notation.`,
+          prompt: `
+You are an expert at converting complex documents (textbooks, academic PDFs, code tutorials) into accurate, structured Markdown. The input is a single image of a page from such a document. Convert the visible content into clean Markdown.
+
+Rules to follow:
+1. Use '#' for the main document title only once, if visible. Otherwise, use '##' or '###' as appropriate for sections and sub-sections.
+2. If the page is a continuation and has no title, do not invent one. Do not use '#' unless you're confident it's the actual title of the entire document.
+3. Use proper formatting:
+   - Bold: **like this**
+   - Italic: *like this*
+   - Lists: '-', '1.' for bullets and numbers
+   - Code blocks: Use triple backticks like \`\`\`js for code
+4. For math expressions:
+   - Use LaTeX wrapped in '$...$' for inline and '$$...$$' for block math
+   - Never skip math; if unreadable, write '[math unreadable]'
+5. Do NOT wrap the whole page in a single code block unless it's clearly all code.
+6. Transcribe figure captions as: **Figure: description**
+7. Maintain spacing/indentation in code/math where relevant
+8. Maintain structural consistency across pages. Don’t assume each page is a new document.
+
+Output only clean and valid Markdown. Do not explain anything.
+`,
         }),
       });
 

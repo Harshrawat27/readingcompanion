@@ -13,6 +13,8 @@ interface MarkdownRendererProps {
   theme?: string;
   isHighlightEnabled?: boolean;
   onRenderComplete?: (success: boolean, stats: any) => void;
+  className?: string; // Add className prop for chat styling
+  compact?: boolean; // Add compact mode for chat messages
 }
 
 export default function MarkdownRenderer({
@@ -21,6 +23,8 @@ export default function MarkdownRenderer({
   theme = 'dark',
   isHighlightEnabled = false,
   onRenderComplete,
+  className = '',
+  compact = false,
 }: MarkdownRendererProps) {
   const [result, setResult] = useState<ProcessingResult>({
     html: '',
@@ -123,7 +127,9 @@ export default function MarkdownRenderer({
 
   return (
     <div
-      className='unified-markdown-content'
+      className={`unified-markdown-content ${className} ${
+        compact ? 'compact-mode' : ''
+      }`}
       style={
         {
           '--font-size': `${fontSize}px`,
@@ -575,7 +581,65 @@ export default function MarkdownRenderer({
           }
         }
 
-        /* Accessibility improvements */
+        /* Compact mode for chat messages */
+        .unified-markdown-content.compact-mode .processing-indicator,
+        .unified-markdown-content.compact-mode .processing-stats {
+          display: none; /* Hide processing info in chat */
+        }
+
+        .unified-markdown-content.compact-mode .rendered-content h1,
+        .unified-markdown-content.compact-mode .rendered-content h2,
+        .unified-markdown-content.compact-mode .rendered-content h3,
+        .unified-markdown-content.compact-mode .rendered-content h4,
+        .unified-markdown-content.compact-mode .rendered-content h5,
+        .unified-markdown-content.compact-mode .rendered-content h6 {
+          margin-top: 1rem;
+          margin-bottom: 0.5rem;
+        }
+
+        .unified-markdown-content.compact-mode .rendered-content h1 {
+          font-size: calc(var(--font-size) * 1.6);
+          border-bottom: 2px solid var(--border-color);
+          margin-bottom: 1rem;
+        }
+
+        .unified-markdown-content.compact-mode .rendered-content h2 {
+          font-size: calc(var(--font-size) * 1.4);
+        }
+
+        .unified-markdown-content.compact-mode .rendered-content h3 {
+          font-size: calc(var(--font-size) * 1.2);
+        }
+
+        .unified-markdown-content.compact-mode .rendered-content p {
+          margin-bottom: 1rem;
+          line-height: 1.6;
+        }
+
+        .unified-markdown-content.compact-mode .rendered-content ul,
+        .unified-markdown-content.compact-mode .rendered-content ol {
+          margin: 1rem 0;
+        }
+
+        .unified-markdown-content.compact-mode .rendered-content li {
+          margin-bottom: 0.4rem;
+        }
+
+        .unified-markdown-content.compact-mode .rendered-content pre {
+          margin: 1rem 0;
+          padding: 1rem;
+        }
+
+        .unified-markdown-content.compact-mode .rendered-content blockquote {
+          margin: 1rem 0;
+          padding: 0.75rem 1rem;
+        }
+
+        .unified-markdown-content.compact-mode
+          .rendered-content
+          .katex-display {
+          margin: 1rem 0;
+        }
         .rendered-content a:focus,
         .rendered-content button:focus {
           outline: 2px solid var(--accent-color);

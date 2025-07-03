@@ -43,6 +43,7 @@ CRITICAL REQUIREMENTS:
 9. Do NOT wrap content in code blocks unless it's actual code, when something is starting from image or complex formula you are turning whole page into code block don't do this, when starting is complex watch carefully and only wrap code into code block.
 
 Extract EVERYTHING visible and return ONLY the properly formatted markdown text with no additional commentary. Pay special attention to mathematical formulas and scientific notation.`;
+    const sanitizedPrompt = (prompt || defaultPrompt).trim();
 
     // Call OpenAI Vision API
     const response = await openai.chat.completions.create({
@@ -53,7 +54,7 @@ Extract EVERYTHING visible and return ONLY the properly formatted markdown text 
           content: [
             {
               type: 'text',
-              text: prompt || defaultPrompt,
+              text: sanitizedPrompt,
             },
             {
               type: 'image_url',
@@ -65,8 +66,10 @@ Extract EVERYTHING visible and return ONLY the properly formatted markdown text 
           ],
         },
       ],
-      max_tokens: 4000, // Increased for longer documents
-      temperature: 0.1, // Low temperature for consistent text extraction
+      max_tokens: 4000,
+      temperature: 0.1,
+      top_p: 1,
+      frequency_penalty: 0.2,
     });
 
     // Extract the text response
