@@ -136,7 +136,7 @@ CRITICAL REQUIREMENTS:
 6. Keep tables in proper markdown table format if present
 7. For images/diagrams, use: [Image: brief description]
 8. Maintain any indentation or grouping
-9. Do NOT wrap content in code blocks unless it's actual code
+9. Do NOT wrap content in code blocks unless it's actual code, when something is starting from image or complex formula you are turning whole page into code block don't do this, when starting is complex watch carefully and only wrap code into code block.
 
 Extract EVERYTHING visible and return ONLY the properly formatted markdown text with no additional commentary. Pay special attention to mathematical formulas and scientific notation.`,
         }),
