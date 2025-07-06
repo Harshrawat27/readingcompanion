@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Enhanced prompt for better markdown output
-    const defaultPrompt = `Analyze this image and extract ALL text while preserving the EXACT original formatting and structure. Pay close attention to the beginning of each image—some may start mid-sentence or include file names or headers. Do not assume any content is a heading unless it's clearly formatted as one. Maintain natural text flow across images that are part of the same document.
+    const defaultPrompt = `Analyze this image and extract ALL text from the beginning now matter how it started while preserving the EXACT original formatting and structure. Pay close attention to the beginning of each image—some may start mid-sentence or include file names or headers. Do not assume any content is a heading unless it's clearly formatted as one. Maintain natural text flow across images that are part of the same document.
 
 CRITICAL REQUIREMENTS:
 1. Identify the text hierarchy exactly as shown (main titles, subtitles, body text)
