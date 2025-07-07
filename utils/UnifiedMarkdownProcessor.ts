@@ -69,6 +69,39 @@ export class UnifiedMarkdownProcessor {
   }
 
   /**
+   * Wrap tables in scrollable divs for better responsive handling
+   */
+  private wrapTablesInScrollableDiv(html: string): string {
+    // First, wrap standalone tables (not already in a wrapper)
+    const wrappedHtml = html
+      .replace(/<table([^>]*)>/g, '<div class="table-wrapper"><table$1>')
+      .replace(/<\/table>/g, '</table></div>');
+
+    return wrappedHtml;
+  }
+
+  /**
+   * Post-process HTML to improve table handling and other enhancements
+   */
+  private postProcessHtml(html: string): string {
+    let processedHtml = html;
+
+    // Wrap tables for better responsive behavior
+    processedHtml = this.wrapTablesInScrollableDiv(processedHtml);
+
+    // Ensure proper spacing around block elements
+    processedHtml = processedHtml
+      // Add proper spacing around headings
+      .replace(/(<\/h[1-6]>)(?!\s*<)/g, '$1\n')
+      // Add proper spacing around paragraphs
+      .replace(/(<\/p>)(?!\s*<)/g, '$1\n')
+      // Clean up excessive whitespace
+      .replace(/\n\s*\n\s*\n/g, '\n\n');
+
+    return processedHtml;
+  }
+
+  /**
    * Process markdown text with full statistics
    */
   async processMarkdown(markdown: string): Promise<ProcessingResult> {
@@ -91,7 +124,10 @@ export class UnifiedMarkdownProcessor {
     try {
       // Process the markdown
       const result = await this.processor.process(markdown);
-      const html = result.toString();
+      let html = result.toString();
+
+      // Post-process the HTML for table improvements and other enhancements
+      html = this.postProcessHtml(html);
 
       // Debug: Log the HTML to see what's being generated
       console.log('Generated HTML:', html.substring(0, 500) + '...');
@@ -131,7 +167,12 @@ export class UnifiedMarkdownProcessor {
 
     try {
       const result = await this.processor.process(markdown);
-      return result.toString();
+      let html = result.toString();
+
+      // Apply post-processing for tables
+      html = this.postProcessHtml(html);
+
+      return html;
     } catch (error) {
       console.warn('Fast processing failed, using escape fallback:', error);
       return this.escapeHtml(markdown)
@@ -211,6 +252,9 @@ export class UnifiedMarkdownProcessor {
 
       // Wrap in paragraphs
       html = `<p>${html}</p>`;
+
+      // Apply table wrapping to fallback as well
+      html = this.postProcessHtml(html);
 
       return {
         html,

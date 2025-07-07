@@ -366,13 +366,28 @@ export default function MarkdownRenderer({
 
         /* Enhanced table styles */
         .unified-markdown-content .rendered-content table {
-          width: 100%;
+          width: auto; /* Changed from 100% */
+          min-width: 100%; /* Ensure it takes full width when content is narrow */
           border-collapse: collapse;
           margin: 2rem 0;
           border: 1px solid var(--border-color);
           border-radius: 6px;
           overflow: hidden;
           display: table;
+        }
+
+        .unified-markdown-content .rendered-content .table-wrapper {
+          overflow-x: auto;
+          overflow-y: visible;
+          margin: 2rem 0;
+          border: 1px solid var(--border-color);
+          border-radius: 6px;
+        }
+
+        .unified-markdown-content .rendered-content .table-wrapper table {
+          margin: 0; /* Remove margin from table since wrapper has it */
+          border: none; /* Remove border from table since wrapper has it */
+          border-radius: 0;
         }
 
         .unified-markdown-content .rendered-content th,
@@ -563,8 +578,6 @@ export default function MarkdownRenderer({
           .rendered-content table {
             font-size: calc(var(--font-size) * 0.8);
             overflow-x: auto;
-            display: block;
-            white-space: nowrap;
           }
 
           .processing-stats {
