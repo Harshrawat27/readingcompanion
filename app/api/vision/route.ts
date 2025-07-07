@@ -78,7 +78,7 @@ Extract EVERYTHING visible and return ONLY the properly formatted markdown text 
 
     // Clean up the markdown (remove any potential wrapper text)
     const cleanedMarkdown = cleanMarkdownOutput(extractedText);
-    console.log(cleanedMarkdown);
+    // console.log(cleanedMarkdown);
     console.log(extractedText);
 
     return NextResponse.json({
