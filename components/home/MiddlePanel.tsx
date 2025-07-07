@@ -228,9 +228,10 @@ export default function MiddlePanel({
         <div className='flex-1 overflow-hidden'>
           {displayText ? (
             <div
-              className='w-full h-full p-6 overflow-y-auto'
+              className='w-full h-full p-6 overflow-y-auto overflow-x-hidden'
               style={{
                 backgroundColor: themeStyles.backgroundColor,
+                minWidth: 0,
               }}
             >
               <MarkdownRenderer

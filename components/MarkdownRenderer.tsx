@@ -142,6 +142,8 @@ export default function MarkdownRenderer({
           color: themeStyles.textColor,
           lineHeight: 1.7,
           wordWrap: 'break-word',
+          minWidth: 0,
+          overflow: 'hidden',
           maxWidth: '100%',
           position: 'relative',
         } as React.CSSProperties
@@ -382,6 +384,9 @@ export default function MarkdownRenderer({
           margin: 2rem 0;
           border: 1px solid var(--border-color);
           border-radius: 6px;
+          width: 100%; /* Add this */
+          min-width: 0; /* Add this */
+          box-sizing: border-box; /* Add this */
         }
 
         .unified-markdown-content .rendered-content .table-wrapper table {

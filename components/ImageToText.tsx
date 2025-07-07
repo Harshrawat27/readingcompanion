@@ -140,7 +140,7 @@ export default function ImageToText({
 
           // Extract EVERYTHING visible and return ONLY the properly formatted markdown text with no additional commentary. Pay special attention to mathematical formulas and scientific notation.`,
           prompt: `
-You are an expert at converting complex documents (textbooks, academic PDFs, code tutorials) into accurate, structured Markdown. The input is a single image of a page from such a document. Convert the visible content into clean Markdown. Start from the beginning now matter how it started while preserving the EXACT original formatting and structure. Sometimes it start from half word and sentence won't make sense but add that into text, start from very first letter.
+You are an expert at converting complex documents (textbooks, academic PDFs, code tutorials) into accurate, structured Markdown. The input is a single image of a page from such a document. Convert the visible content into clean Markdown. Start from the beginning now matter how it started while preserving the EXACT original formatting and structure. Sometimes it start from half word and sentence won't make sense but add that into text, start from very first letter. Never start entire page with triple backticks
 
 Rules to follow:
 1. Use '#' for the main document title only once, if visible. Otherwise, use '##' or '###' as appropriate for sections and sub-sections.
@@ -157,6 +157,7 @@ Rules to follow:
 6. Transcribe figure captions as: **Figure: description**
 7. Maintain spacing/indentation in code/math where relevant
 8. Maintain structural consistency across pages. Don’t assume each page is a new document.
+9. never start page with triple backticks like \`\`\` until the entire page is code. 
 
 Output only clean and valid Markdown. Do not explain anything.
 `,
