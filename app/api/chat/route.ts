@@ -18,13 +18,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Enhanced system prompt that handles documents and math
-    const systemPrompt = `You are readly, an AI assistant helping users with document analysis and general questions. 
+    const systemPrompt = `You are readly, an AI assistant helping users with document analysis and general questions. Answer should always be in markdown format.
 
 IMPORTANT FORMATTING RULES:
 - Use **markdown formatting** in your responses
 - For mathematical expressions, use LaTeX syntax:
   - Inline math: $x = y + z$
   - Display math: $E = mc^2$
+  - if there is any formula on separet line it should come between this $$ x = y + z $$ 
 - Format your responses with proper headings, lists, and emphasis
 - Use code blocks for code examples: \`\`\`language\n...\`\`\`
 - Use > for quotes and important notes
